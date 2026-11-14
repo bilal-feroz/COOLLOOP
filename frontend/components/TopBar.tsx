@@ -1,0 +1,271 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { ago, dateClock, utcOffsetLabel } from "@/lib/format";
+import { useApp, type View } from "@/lib/store";
+import type { WeatherBundle } from "@/lib/types";
+import { useNow } from "./charts";
+import { Btn, Choice, Dot, Icon, type IconName, Meter, Note, Tag } from "./ui";
+
+const TABS: { view: View; label: string; icon: IconName }[] = [
+  { view: "operations", label: "Operations", icon: "operations" },
+  { view: "twin", label: "Digital twin", icon: "twin" },
+  { view: "simulation", label: "Simulation", icon: "simulation" },
+  { view: "intelligence", label: "Intelligence", icon: "intelligence" },
+];
+
+export function sourceStatus(weather: WeatherBundle | undefined): { label: string; colour: string; pulse: boolean } {
+  switch (weather?.status) {
+    case "live":
+      return { label: "Live", colour: "var(--color-accent)", pulse: false };
+    case "cached":
+      return { label: "Cached", colour: "var(--color-warn)", pulse: true };
+    case "demo":
+      return { label: "Demo data", colour: "var(--color-warn)", pulse: false };
+    case "not_configured":
+      return { label: "Not configured", colour: "var(--color-crit)", pulse: true };
+    case "unavailable":
+      return { label: "No weather", colour: "var(--color-crit)", pulse: true };
+    default:
+      return { label: "Connecting", colour: "var(--color-ink-3)", pulse: true };
+  }
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 py-[3px] text-[11.5px]">
+      <span className="text-ink-3">{label}</span>
+      <span className="num text-right text-ink">{children}</span>
+    </div>
+  );
+}
+
+function SourcePanel({ onClose }: { onClose: () => void }) {
+  const weather = useApp((s) => s.overview?.weather);
+  const busy = useApp((s) => s.busy);
+  const refreshWeather = useApp((s) => s.refreshWeather);
+  const setWeatherMode = useApp((s) => s.setWeatherMode);
+  const setLocation = useApp((s) => s.setLocation);
+  const [form, setForm] = useState(() => ({
+    name: weather?.location.name ?? "",
+    lat: String(weather?.location.lat ?? ""),
+    lon: String(weather?.location.lon ?? ""),
+    offset: String(weather?.location.utc_offset_hours ?? 4),
+  }));
+  if (!weather) return null;
+  const offset = weather.location.utc_offset_hours;
+  const status = sourceStatus(weather);
+  const lat = Number(form.lat);
+  const lon = Number(form.lon);
+  const utc = Number(form.offset);
+  const valid = form.name.trim().length > 1 && Math.abs(lat) <= 90 && Math.abs(lon) <= 180 && utc >= -12 && utc <= 14 && form.lat !== "" && form.lon !== "";
+  const changed = form.name !== weather.location.name || lat !== weather.location.lat || lon !== weather.location.lon || utc !== offset;
+  const quota = weather.quota;
+
+  return (
+    <div className="rise absolute right-0 top-[calc(100%+1px)] z-50 max-h-[calc(100dvh-60px)] w-[400px] overflow-y-auto border border-line-2 bg-panel shadow-[0_18px_50px_rgba(0,0,0,0.65)]">
+      <div className="flex h-9 items-center justify-between border-b border-line px-3">
+        <span className="label">Weather data source</span>
+        <button onClick={onClose} className="text-ink-3 hover:text-ink" aria-label="Close">
+          <Icon name="close" size={13} />
+        </button>
+      </div>
+
+      <div className="space-y-3 border-b border-line p-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-[13px] text-ink">{weather.provider}</div>
+            <div className="text-[11.5px] text-ink-3">{weather.model ? `Source: ${weather.model}` : "No model reported"}</div>
+          </div>
+          <Tag colour={status.colour}>{status.label}</Tag>
+        </div>
+        <div className="flex items-center justify-between">
+          <Choice
+            value={weather.mode}
+            onChange={(mode) => mode !== weather.mode && setWeatherMode(mode)}
+            options={[
+              { value: "live", label: "Live Meteomatics", title: "Real forecast from the Meteomatics Weather API" },
+              { value: "demo", label: "Demo dataset", title: "Deterministic synthetic profile, clearly labelled" },
+            ]}
+          />
+          <Btn onClick={refreshWeather} disabled={busy} title="Request the forecast again now">
+            <Icon name="refresh" size={12} />
+            Refresh
+          </Btn>
+        </div>
+        {weather.error && <Note tone="crit">{weather.error.message}</Note>}
+        {weather.notice && <Note tone={weather.synthetic || weather.stale ? "warn" : "info"}>{weather.notice}</Note>}
+      </div>
+
+      <div className="border-b border-line p-3">
+        <Row label="Forecast valid from">{dateClock(weather.current?.time, offset)}</Row>
+        <Row label="Retrieved">{weather.fetched_at ? `${dateClock(weather.fetched_at, offset)} (${ago(weather.fetched_at)})` : "–"}</Row>
+        <Row label="Generated by the API">{dateClock(weather.api_generated_at, offset)}</Row>
+        <Row label="Last successful update">{dateClock(weather.last_success_at, offset)}</Row>
+        <Row label="Next refresh">{dateClock(weather.next_refresh_at, offset)}</Row>
+        <Row label="Forecast hours held">{weather.hourly.length}</Row>
+        {quota && (
+          <div className="mt-2">
+            <Row label="API queries today">
+              {quota.used_today ?? "–"} / {quota.limit_today ?? "–"}
+            </Row>
+            {quota.limit_today && quota.used_today !== null && <Meter value={quota.used_today / quota.limit_today} label="API quota used" />}
+          </div>
+        )}
+      </div>
+
+      <div className="border-b border-line p-3">
+        <div className="label mb-2">Parameters</div>
+        <div className="space-y-1.5">
+          {weather.parameters.map((p) => (
+            <div key={p.id} className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="num text-[11.5px] text-ink">{p.id}</div>
+                <div className="text-[11px] leading-snug text-ink-3">{p.detail || p.role}</div>
+              </div>
+              <Tag
+                colour={
+                  p.source === "api" ? "var(--color-accent)" : p.source === "unavailable" ? "var(--color-crit)" : "var(--color-warn)"
+                }
+              >
+                {p.source === "api" ? "API" : p.source}
+              </Tag>
+            </div>
+          ))}
+          {!weather.parameters.length && <div className="text-[11.5px] text-ink-3">No parameters received.</div>}
+        </div>
+      </div>
+
+      <form
+        className="p-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (valid && changed) setLocation({ name: form.name.trim(), lat, lon, utc_offset_hours: utc, elevation_m: weather.location.elevation_m });
+        }}
+      >
+        <div className="label mb-2">Site coordinates</div>
+        <div className="grid grid-cols-[1fr_84px_84px_64px] gap-2">
+          {(
+            [
+              ["name", "Name", "text"],
+              ["lat", "Latitude", "number"],
+              ["lon", "Longitude", "number"],
+              ["offset", "UTC offset", "number"],
+            ] as const
+          ).map(([key, label, type]) => (
+            <label key={key} className="block">
+              <span className="mb-1 block text-[10.5px] text-ink-3">{label}</span>
+              <input
+                type={type}
+                step="any"
+                value={form[key]}
+                onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                className="num h-7 w-full border border-line-2 bg-inset px-2 text-[12px] text-ink outline-none focus:border-accent"
+              />
+            </label>
+          ))}
+        </div>
+        <div className="mt-2 flex items-center justify-between">
+          <span className="text-[11px] text-ink-3">The reference facility is simulated at this location.</span>
+          <Btn type="submit" disabled={!valid || !changed || busy}>
+            Apply
+          </Btn>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+export function TopBar() {
+  const view = useApp((s) => s.view);
+  const setView = useApp((s) => s.setView);
+  const overview = useApp((s) => s.overview);
+  const offline = useApp((s) => s.offline);
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  const now = useNow(20_000);
+  const weather = overview?.weather;
+  const status = sourceStatus(weather);
+  const offset = weather?.location.utc_offset_hours ?? 4;
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: PointerEvent) => {
+      if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false);
+    };
+    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", key);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", key);
+    };
+  }, [open]);
+
+  return (
+    <header className="relative z-40 flex h-11 shrink-0 items-stretch border-b border-line bg-panel">
+      <div className="flex w-[196px] shrink-0 items-center gap-2.5 border-r border-line px-3.5">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+          <path d="M10 2.2a7.8 7.8 0 107.8 7.8" stroke="var(--color-accent)" strokeWidth="1.8" strokeLinecap="round" />
+          <path d="M10 6.2c1.9 2.3 2.9 3.8 2.9 5a2.9 2.9 0 01-5.8 0c0-1.2 1-2.7 2.9-5z" fill="var(--color-accent)" />
+          <path d="M17.8 5.2v4.9h-4.9" stroke="var(--color-accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span className="text-[13.5px] font-semibold tracking-[0.2em] text-ink">COOLLOOP</span>
+      </div>
+
+      <nav className="flex items-stretch" aria-label="Sections">
+        {TABS.map((tab) => {
+          const on = tab.view === view;
+          return (
+            <button
+              key={tab.view}
+              onClick={() => setView(tab.view)}
+              aria-current={on ? "page" : undefined}
+              className={`relative flex items-center gap-2 border-r border-line px-4 text-[12px] uppercase tracking-[0.1em] transition-colors ${
+                on ? "bg-raised text-ink" : "text-ink-3 hover:bg-raised/60 hover:text-ink-2"
+              }`}
+            >
+              <Icon name={tab.icon} size={14} className={on ? "text-accent" : ""} />
+              {tab.label}
+              {on && <span className="absolute inset-x-0 bottom-0 h-[2px] bg-accent" />}
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className="ml-auto flex items-stretch">
+        {overview && (
+          <div className="hidden items-center gap-2.5 border-l border-line px-3.5 xl:flex" title={overview.facility.notice}>
+            <span className="num text-[12px] text-ink">{overview.facility.id}</span>
+            <Tag colour="var(--color-ink-3)">Synthetic facility</Tag>
+          </div>
+        )}
+        <div ref={wrap} className="relative flex items-stretch border-l border-line">
+          <button
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            className={`flex items-center gap-2.5 px-3.5 text-left transition-colors hover:bg-raised ${open ? "bg-raised" : ""}`}
+          >
+            <Dot colour={offline ? "var(--color-crit)" : status.colour} pulse={offline || status.pulse} />
+            <span className="leading-tight">
+              <span className="block text-[11.5px] text-ink">
+                {offline ? "Backend offline" : `${weather?.synthetic ? "Synthetic weather" : "Meteomatics"} · ${status.label}`}
+              </span>
+              <span className="block text-[10.5px] text-ink-3">
+                {weather ? `${weather.location.name} · updated ${ago(weather.fetched_at, now)}` : "Waiting for data"}
+              </span>
+            </span>
+            <Icon name="chevron" size={11} className={`text-ink-3 transition-transform ${open ? "-rotate-90" : "rotate-90"}`} />
+          </button>
+          {open && <SourcePanel onClose={() => setOpen(false)} />}
+        </div>
+        <div className="flex items-center border-l border-line px-3.5 leading-tight">
+          <span>
+            <span className="num block text-[12px] text-ink">{dateClock(new Date(now), offset)}</span>
+            <span className="block text-[10.5px] text-ink-3">Site time, {utcOffsetLabel(offset)}</span>
+          </span>
+        </div>
+      </div>
+    </header>
+  );
+}
