@@ -91,12 +91,12 @@ export function Frame({
   const [showTable, setShowTable] = useState(false);
   return (
     <figure className="min-w-0">
-      <figcaption className="mb-1.5 flex min-h-5 items-center justify-between gap-3">
-        <div className="flex min-w-0 items-baseline gap-1.5">
-          <span className="truncate text-[12px] text-ink">{title}</span>
+      <figcaption className="mb-1.5 flex min-h-5 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <div className="flex shrink-0 items-baseline gap-1.5">
+          <span className="whitespace-nowrap text-[12px] text-ink">{title}</span>
           {unit && <span className="shrink-0 text-[11px] text-ink-3">{unit}</span>}
         </div>
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="ml-auto flex items-center gap-3">
           {legend}
           {right}
           {table && (

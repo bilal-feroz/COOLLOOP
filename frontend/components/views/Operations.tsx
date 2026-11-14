@@ -19,6 +19,7 @@ function Environment({ overview }: { overview: Overview }) {
   const times = hours.map((h) => h.time);
   const rain = hours.reduce((a, h) => a + (h.precip_mm ?? 0), 0);
   const design = overview.facility.limits.tower_design_wet_bulb_c;
+  const projection = overview.projection;
 
   if (!now) {
     return (
@@ -110,6 +111,35 @@ function Environment({ overview }: { overview: Overview }) {
           )}
         </div>
       </Section>
+
+      {projection && (
+        <Section title="Projected plant response" right={<Tag>Simulated</Tag>}>
+          <div className="space-y-4">
+            <TimeChart
+              title="Makeup water"
+              unit="m³/h"
+              times={projection.times}
+              offset={offset}
+              height={112}
+              zero
+              series={[{ key: "makeup", label: "Makeup", colour: "var(--color-s1)", values: projection.makeup_m3_h, area: true }]}
+              refs={[{ value: overview.config.water_allocation_m3_day / 24, label: "Allocation rate" }]}
+            />
+            <TimeChart
+              title="Cooling power"
+              unit="kW"
+              times={projection.times}
+              offset={offset}
+              height={104}
+              digits={0}
+              series={[{ key: "power", label: "Cooling power", colour: "var(--color-s2)", values: projection.cooling_power_kw }]}
+            />
+          </div>
+          <p className="mt-2.5 text-[11px] leading-snug text-ink-3">
+            The applied configuration held for every forecast hour. Change the forecast and these curves change with it.
+          </p>
+        </Section>
+      )}
     </>
   );
 }

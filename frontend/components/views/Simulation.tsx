@@ -16,6 +16,13 @@ const SCENARIO_COLOUR: Record<ScenarioKey, string> = {
   draft: "var(--color-s2)",
 };
 const SETPOINT_KEYS = ["wet_fraction", "chw_supply_c", "tower_fan_speed", "cw_pump_speed", "cycles_of_concentration"] as const;
+// Fixed ambient conditions worth rehearsing in a hot, arid climate.
+const AMBIENT_CASES = [
+  { label: "Dry afternoon", t: 46, rh: 12 },
+  { label: "Humid night", t: 34, rh: 80 },
+  { label: "Tower design day", t: 36, rh: 65 },
+  { label: "Mild", t: 27, rh: 50 },
+];
 
 // --- parameter panel ------------------------------------------------------------------
 function Slider({
@@ -174,6 +181,22 @@ function Parameters() {
             onChange={(v) => setManual({ rh_pct: v })}
           />
         </div>
+        {ambientMode === "manual" && (
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            {AMBIENT_CASES.map((c) => (
+              <button
+                key={c.label}
+                onClick={() => setManual({ t_db_c: c.t, rh_pct: c.rh })}
+                title={`${c.t} °C, ${c.rh} % humidity`}
+                className={`h-[22px] border px-2 text-[11px] leading-none transition-colors ${
+                  manual.t_db_c === c.t && manual.rh_pct === c.rh ? "border-accent text-ink" : "border-line-2 text-ink-2 hover:border-ink-3 hover:text-ink"
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="mt-2.5 flex items-baseline justify-between border-t border-line pt-2 text-[11.5px]">
           <span className="text-ink-3">{ambientMode === "manual" ? "Resulting wet-bulb" : "Wet-bulb this hour"}</span>
           <span className="num text-accent">{num(conditions?.t_wb_c, 1)} °C</span>

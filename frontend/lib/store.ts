@@ -332,7 +332,7 @@ export const useApp = create<AppState>((set, get) => ({
 
   selected: null,
   hovered: null,
-  layers: { water: true, heat: true, air: false, labels: false, cutaway: true },
+  layers: { water: true, heat: true, air: true, labels: false, cutaway: true },
   preset: { name: "overview", nonce: 0 },
   select: (selected) => set({ selected }),
   hover: (hovered) => {

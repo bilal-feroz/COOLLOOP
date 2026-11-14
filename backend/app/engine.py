@@ -12,7 +12,7 @@ import numpy as np
 from pydantic import BaseModel
 
 from .analysis import build_alerts
-from .config import Settings
+from .config import Settings, env_file_mtime, load_settings
 from .facility import FACILITY, PARAMETER_META, AmbientOverride, Location, OperatingConfig
 from .intelligence import agents
 from .intelligence.briefing import Briefing, build_briefing
@@ -169,6 +169,17 @@ class Engine:
         self._opt_cache: OrderedDict[str, OptimizationResult] = OrderedDict()
         self._controls = _control_specs()
         self._facility_info = _facility_info()
+        self._env_mtime = env_file_mtime()
+
+    def _follow_env_file(self) -> None:
+        """Pick up credentials saved to `.env` while the backend is running."""
+        mtime = env_file_mtime()
+        if mtime is None or mtime == self._env_mtime:
+            return
+        self._env_mtime = mtime
+        fresh = load_settings()
+        self.settings = Settings(**{**fresh.__dict__, "data_dir": self.settings.data_dir})
+        self.weather.reconfigure(self.settings)
 
     # --- helpers --------------------------------------------------------------------
     def _base_config(self, draft: OperatingConfig | None) -> OperatingConfig:
@@ -207,6 +218,7 @@ class Engine:
 
     # --- operations ---------------------------------------------------------------------
     def overview(self, horizon_hours: int = 72, force_weather: bool = False) -> Overview:
+        self._follow_env_file()
         bundle = self.weather.bundle(force=force_weather)
         cfg = self.store.config()
         now = projection = None

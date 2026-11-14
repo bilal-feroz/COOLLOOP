@@ -7,18 +7,12 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 
 from .facility import Location
 
 ROOT = Path(__file__).resolve().parents[2]
-
-
-def _float(name: str, default: float) -> float:
-    try:
-        return float(os.getenv(name, "") or default)
-    except ValueError:
-        return default
+ENV_FILE = ROOT / ".env"
 
 
 @dataclass(frozen=True)
@@ -47,27 +41,53 @@ class Settings:
         return bool(self.anthropic_api_key)
 
 
+def env_file_mtime() -> float | None:
+    try:
+        return ENV_FILE.stat().st_mtime
+    except OSError:
+        return None
+
+
+def load_settings() -> Settings:
+    """Read the settings now. Values in `.env` win over the process
+    environment when they are not empty, so the file can be edited while the
+    backend runs."""
+    file_values = {k: v.strip() for k, v in dotenv_values(ENV_FILE).items() if v and v.strip()}
+    env = {**os.environ, **file_values}
+
+    def text(name: str, default: str = "") -> str:
+        return (env.get(name) or "").strip() or default
+
+    def number(name: str, default: float) -> float:
+        try:
+            return float(text(name) or default)
+        except ValueError:
+            return default
+
+    # The Anthropic SDK reads its credentials from the process environment.
+    for name in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
+        if name in file_values:
+            os.environ[name] = file_values[name]
+        elif os.environ.get(name) == "":
+            del os.environ[name]  # an empty key must not shadow other credential sources
+
+    return Settings(
+        meteomatics_username=text("METEOMATICS_USERNAME"),
+        meteomatics_password=text("METEOMATICS_PASSWORD"),
+        meteomatics_base_url=text("METEOMATICS_BASE_URL", "https://api.meteomatics.com").rstrip("/"),
+        meteomatics_source=text("METEOMATICS_SOURCE", "mix"),
+        site=Location(
+            name=text("SITE_NAME", "Abu Dhabi, UAE"),
+            lat=number("SITE_LAT", 24.4539),
+            lon=number("SITE_LON", 54.3773),
+            utc_offset_hours=number("SITE_UTC_OFFSET_HOURS", 4.0),
+        ),
+        anthropic_api_key=text("ANTHROPIC_API_KEY"),
+        llm_model=text("COOLLOOP_LLM_MODEL", "claude-opus-5-5"),
+        data_dir=Path(text("COOLLOOP_DATA_DIR") or ROOT / "backend" / "data"),
+    )
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    load_dotenv(ROOT / ".env")
-    # An empty key in .env must not shadow other Anthropic credential sources.
-    for name in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
-        if os.environ.get(name, None) == "":
-            del os.environ[name]
-    return Settings(
-        meteomatics_username=os.getenv("METEOMATICS_USERNAME", "").strip(),
-        meteomatics_password=os.getenv("METEOMATICS_PASSWORD", "").strip(),
-        meteomatics_base_url=(
-            os.getenv("METEOMATICS_BASE_URL", "").strip() or "https://api.meteomatics.com"
-        ).rstrip("/"),
-        meteomatics_source=os.getenv("METEOMATICS_SOURCE", "").strip() or "mix",
-        site=Location(
-            name=os.getenv("SITE_NAME", "").strip() or "Abu Dhabi, UAE",
-            lat=_float("SITE_LAT", 24.4539),
-            lon=_float("SITE_LON", 54.3773),
-            utc_offset_hours=_float("SITE_UTC_OFFSET_HOURS", 4.0),
-        ),
-        anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", "").strip(),
-        llm_model=os.getenv("COOLLOOP_LLM_MODEL", "").strip() or "claude-opus-5-5",
-        data_dir=Path(os.getenv("COOLLOOP_DATA_DIR", "") or ROOT / "backend" / "data"),
-    )
+    return load_settings()

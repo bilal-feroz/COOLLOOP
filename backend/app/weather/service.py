@@ -95,6 +95,26 @@ class WeatherService:
         self._quota: WeatherQuota | None = None
 
     # --- public -----------------------------------------------------------------
+    def reconfigure(self, settings: Settings) -> None:
+        """Adopt new settings (credentials edited in `.env`) without a restart."""
+        with self._lock:
+            old = self.settings
+            self.settings = settings
+            changed = (
+                old.meteomatics_username, old.meteomatics_password,
+                old.meteomatics_base_url, old.meteomatics_source,
+            ) != (
+                settings.meteomatics_username, settings.meteomatics_password,
+                settings.meteomatics_base_url, settings.meteomatics_source,
+            )  # fmt: skip
+            if changed:
+                if self._client is not None:
+                    self._client.close()
+                self._client = None
+                self._retry_at = None
+                self._error = None
+                self._quota = None
+
     def mode(self) -> str:
         stored = self.store.weather_mode()
         if stored in ("live", "demo"):
@@ -158,7 +178,7 @@ class WeatherService:
                     kind="not_configured",
                     message=(
                         "Meteomatics credentials are not set. Add METEOMATICS_USERNAME and "
-                        "METEOMATICS_PASSWORD to the .env file and restart the backend."
+                        "METEOMATICS_PASSWORD to the .env file; they are picked up automatically."
                     ),
                     at=now,
                 ),
