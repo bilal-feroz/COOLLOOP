@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useApp, type View } from "@/lib/store";
 import { TopBar } from "./TopBar";
 import { TwinHost } from "./twin/TwinViewport";
@@ -82,10 +82,22 @@ export default function Shell() {
     };
   }, [refresh, offline, overview === null]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // The recommendation follows the applied configuration and the forecast.
+  // The recommendation follows the applied configuration and the forecast:
+  // when a new forecast hour or a new weather retrieval arrives, both the
+  // recommendation and the briefing are rebuilt.
+  const forecastKey = `${overview?.weather.current?.time ?? ""}|${overview?.weather.status ?? ""}|${overview?.weather.location.name ?? ""}`;
+  const lastForecastKey = useRef(forecastKey);
   useEffect(() => {
+    if (lastForecastKey.current !== forecastKey) {
+      const first = lastForecastKey.current === "||";
+      lastForecastKey.current = forecastKey;
+      if (!first) {
+        useApp.setState({ optimisationStatus: "idle", briefingStatus: "idle" });
+        return;
+      }
+    }
     if (hasWeather && optimisationStatus === "idle") loadOptimisation();
-  }, [hasWeather, optimisationStatus, loadOptimisation]);
+  }, [forecastKey, hasWeather, optimisationStatus, loadOptimisation]);
 
   // The section is part of the URL so a reload or a shared link lands on it.
   useEffect(() => {

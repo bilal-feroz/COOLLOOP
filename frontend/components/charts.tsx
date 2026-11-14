@@ -175,6 +175,8 @@ export function TimeChart({
   digits = 1,
   zero = false,
   right,
+  bands = [],
+  marker,
 }: {
   title: string;
   unit?: string;
@@ -187,6 +189,10 @@ export function TimeChart({
   /** Start the y-axis at zero (always on for bars). */
   zero?: boolean;
   right?: ReactNode;
+  /** Index ranges to shade, for example high-demand periods. */
+  bands?: { from: number; to: number }[];
+  /** A point in time to mark, for example where history ends and the forecast begins. */
+  marker?: { index: number; label: string };
 }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
@@ -290,6 +296,27 @@ export function TimeChart({
               );
             })}
             <line x1={M.left} x2={width - M.right} y1={M.top + plotH} y2={M.top + plotH} stroke="var(--color-line-2)" />
+
+            {bands.map((b) => (
+              <rect
+                key={`${b.from}-${b.to}`}
+                x={x(b.from) - band / 2}
+                y={M.top}
+                width={Math.max(2, x(b.to) - x(b.from) + band)}
+                height={plotH}
+                fill="var(--color-warn)"
+                opacity="0.09"
+              />
+            ))}
+            {marker && marker.index > 0 && marker.index < n && (
+              <g>
+                <rect x={M.left} y={M.top} width={x(marker.index) - M.left} height={plotH} fill="var(--color-bg)" opacity="0.45" />
+                <line x1={x(marker.index)} x2={x(marker.index)} y1={M.top - 2} y2={M.top + plotH} stroke="var(--color-ink-2)" strokeWidth="1" />
+                <text x={x(marker.index) + 4} y={M.top + 8} className="fill-ink-2 text-[10px]">
+                  {marker.label}
+                </text>
+              </g>
+            )}
 
             {refs.map((r) => (
               <g key={r.label}>

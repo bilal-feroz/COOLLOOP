@@ -329,6 +329,25 @@ def thermal_section(
             )  # fmt: skip
         )
 
+    windows = sorted((p for p in projection.periods if p.kind == "water"), key=lambda p: p.start)[:3]
+    if windows:
+        spans = "; ".join(f"{_span(p.start, p.end, location)}, peak {p.peak:.1f} m³/h" for p in windows)
+        order = ["nominal", "elevated", "high", "critical"]
+        rank = {"nominal": "info", "elevated": "watch", "high": "warning", "critical": "critical"}
+        worst_level = max(windows, key=lambda p: order.index(p.level)).level
+        plural = "s" if len(windows) > 1 else ""
+        findings.append(
+            Finding(
+                title="Upcoming high-demand periods",
+                detail=(
+                    f"Makeup demand is highest in {len(windows)} period{plural} of the forecast: {spans}. "
+                    "These are the hours to protect stored water."
+                ),
+                severity=rank[worst_level],
+                evidence=[_m(f"Peak {k + 1}", p.peak, "m³/h", 1) for k, p in enumerate(windows)],
+            )
+        )
+
     if previous_day is not None and previous_day.makeup_m3 > 0.01 and previous_day.hours >= 12:
         scale = day.hours / previous_day.hours
         before = previous_day.makeup_m3 * scale

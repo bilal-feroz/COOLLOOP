@@ -15,11 +15,23 @@ function Environment({ overview }: { overview: Overview }) {
   const refreshWeather = useApp((s) => s.refreshWeather);
   const busy = useApp((s) => s.busy);
   const now = weather.current;
-  const hours = weather.hourly.slice(0, 72);
+  const ahead = weather.hourly.slice(0, 72);
+  const past = weather.history.slice(-24);
+  const hours = [...past, ...ahead];
   const times = hours.map((h) => h.time);
-  const rain = hours.reduce((a, h) => a + (h.precip_mm ?? 0), 0);
+  const marker = past.length ? { index: past.length, label: "now" } : undefined;
+  const rain = ahead.reduce((a, h) => a + (h.precip_mm ?? 0), 0);
   const design = overview.facility.limits.tower_design_wet_bulb_c;
   const projection = overview.projection;
+  const demandBands = projection
+    ? projection.periods
+        .filter((p) => p.kind === "water")
+        .map((p) => {
+          const from = projection.times.indexOf(p.start);
+          return { from, to: from + p.hours - 1 };
+        })
+        .filter((b) => b.from >= 0)
+    : [];
 
   if (!now) {
     return (
@@ -70,7 +82,7 @@ function Environment({ overview }: { overview: Overview }) {
         </div>
       </Section>
 
-      <Section title="Forecast, next 72 h">
+      <Section title={past.length ? `Weather, last ${past.length} h and next 72 h` : "Forecast, next 72 h"}>
         <div className="space-y-4">
           <TimeChart
             title="Temperature"
@@ -83,6 +95,7 @@ function Environment({ overview }: { overview: Overview }) {
               { key: "wb", label: "Wet-bulb", colour: "var(--color-s1)", values: hours.map((h) => h.wet_bulb_c) },
             ]}
             refs={[{ value: design, label: `Tower design wet-bulb ${num(design, 0)} °C` }]}
+            marker={marker}
           />
           <TimeChart
             title="Relative humidity"
@@ -92,16 +105,17 @@ function Environment({ overview }: { overview: Overview }) {
             height={92}
             digits={0}
             series={[{ key: "rh", label: "Humidity", colour: "var(--color-s3)", values: hours.map((h) => h.rh_pct), area: true }]}
+            marker={marker}
           />
           {rain > 0.05 ? (
             <TimeChart
               title="Precipitation"
               unit="mm/h"
-              times={times}
+              times={ahead.map((h) => h.time)}
               offset={offset}
               height={84}
               digits={2}
-              series={[{ key: "rain", label: "Rain", colour: "var(--color-s1)", values: hours.map((h) => h.precip_mm), kind: "bar" }]}
+              series={[{ key: "rain", label: "Rain", colour: "var(--color-s1)", values: ahead.map((h) => h.precip_mm), kind: "bar" }]}
             />
           ) : (
             <div>
@@ -124,6 +138,7 @@ function Environment({ overview }: { overview: Overview }) {
               zero
               series={[{ key: "makeup", label: "Makeup", colour: "var(--color-s1)", values: projection.makeup_m3_h, area: true }]}
               refs={[{ value: overview.config.water_allocation_m3_day / 24, label: "Allocation rate" }]}
+              bands={demandBands}
             />
             <TimeChart
               title="Cooling power"
@@ -136,7 +151,8 @@ function Environment({ overview }: { overview: Overview }) {
             />
           </div>
           <p className="mt-2.5 text-[11px] leading-snug text-ink-3">
-            The applied configuration held for every forecast hour. Change the forecast and these curves change with it.
+            The applied configuration held for every forecast hour.
+            {demandBands.length > 0 ? " Shaded hours are the periods of highest water demand." : ""}
           </p>
         </Section>
       )}
@@ -220,6 +236,15 @@ function RecommendationCard() {
 function Plant({ overview }: { overview: Overview }) {
   const point = overview.now;
   const projection = overview.projection;
+  const demandBands = projection
+    ? projection.periods
+        .filter((p) => p.kind === "water")
+        .map((p) => {
+          const from = projection.times.indexOf(p.start);
+          return { from, to: from + p.hours - 1 };
+        })
+        .filter((b) => b.from >= 0)
+    : [];
   const offset = overview.weather.location.utc_offset_hours;
   if (!point || !projection) {
     return (
@@ -348,6 +373,15 @@ export default function Operations() {
   const offset = useOffset();
   if (!overview) return null;
   const projection = overview.projection;
+  const demandBands = projection
+    ? projection.periods
+        .filter((p) => p.kind === "water")
+        .map((p) => {
+          const from = projection.times.indexOf(p.start);
+          return { from, to: from + p.hours - 1 };
+        })
+        .filter((b) => b.from >= 0)
+    : [];
   const item = overview.now?.equipment.find((e) => e.id === selected);
 
   return (
