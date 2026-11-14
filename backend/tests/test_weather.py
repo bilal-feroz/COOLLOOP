@@ -401,6 +401,20 @@ def test_extreme_hours_come_from_one_scan_of_the_past_year(tmp_path):
     assert len(fake.data_requests) == 2
 
 
+def test_a_failed_rescan_keeps_the_last_list_of_extremes(tmp_path):
+    fake = FakeMeteomatics()
+    service, _, clock = service_for(tmp_path, fake)
+    found = service.extremes()
+    fake.fail_status = 503
+    clock[0] = NOW + timedelta(days=3)
+    assert service.extremes() == found  # still a true record of the year it names
+    attempts = len(fake.requests)
+    assert service.extremes() == found and len(fake.requests) == attempts  # and not retried at once
+    fake.fail_status = None
+    clock[0] = NOW + timedelta(days=3, minutes=10)
+    assert service.extremes().scanned_to == (NOW + timedelta(days=3)).replace(minute=0)
+
+
 def test_extremes_are_never_invented(tmp_path):
     bare, _, _ = service_for(tmp_path / "bare", FakeMeteomatics(), configured=False)
     with pytest.raises(MeteomaticsError) as err:

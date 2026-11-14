@@ -69,7 +69,7 @@ function ReplayChooser({ weather }: { weather: WeatherBundle }) {
     <div className="border border-line bg-inset">
       <div className="px-2.5 py-2 text-[11.5px] leading-snug text-ink-2">
         {found
-          ? `The hardest hours of the past year at this site, found in ${num(found.hours, 0)} hourly values of Meteomatics history.`
+          ? `The hardest hours at this site from ${dateOnly(found.scanned_from, offset)} to ${dateOnly(found.scanned_to, offset)}, found in ${num(found.hours, 0)} hourly values of Meteomatics history.`
           : "The hardest hours of the past year at this site, from Meteomatics history."}
       </div>
       {found ? (

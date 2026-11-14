@@ -123,6 +123,7 @@ class WeatherService:
         self._replay: dict | None = None
         self._replay_error: tuple[str, WeatherError, datetime] | None = None
         self._extremes: tuple[str, WeatherExtremes] | None = None
+        self._scan_retry_at: datetime | None = None
 
     # --- public -----------------------------------------------------------------
     def reconfigure(self, settings: Settings) -> None:
@@ -145,6 +146,7 @@ class WeatherService:
                 self._error = None
                 self._quota = None
                 self._replay_error = None
+                self._scan_retry_at = None
 
     def mode(self) -> str:
         stored = self.store.weather_mode()
@@ -454,8 +456,9 @@ class WeatherService:
         )
 
     def extremes(self) -> WeatherExtremes:
-        """Scan the past year for the hours that stress the plant most. One
-        hourly request; the result is kept for a day."""
+        """The hours of the past year that stress the plant most. One hourly
+        request, kept for a day. If a later scan fails, the last successful one
+        is returned: it names its period and is still a true record of it."""
         location = self.store.location()
         with self._lock:
             now = self._now()
@@ -464,51 +467,19 @@ class WeatherService:
             key = f"extremes_{self._key(location)}"
             if self._extremes is None or self._extremes[0] != key:
                 self._extremes = self._load_extremes(key)
-            if self._extremes and (now - self._extremes[1].scanned_to).total_seconds() < 24 * 3600:
-                return self._extremes[1]
-
-            client = self._ready_client(now)
-            end = _floor_hour(now)
-            start = end - timedelta(days=SCAN_DAYS)
-            series = client.available_timeseries(
-                start, end, ["t_2m:C", "wet_bulb_t_2m:C", "relative_humidity_2m:p"], location.lat, location.lon
-            )
-
-            def column(pid: str) -> np.ndarray | None:
-                values = series.values.get(pid)
-                return None if values is None else np.array([np.nan if v is None else v for v in values], dtype=float)
-
-            t = column("t_2m:C")
-            rh = column("relative_humidity_2m:p")
-            wb = column("wet_bulb_t_2m:C")
-            if t is None or (wb is None and rh is None):
-                raise MeteomaticsError("parameter", "The account does not provide temperature and humidity history.")
-            if wb is None:
-                p = ps.standard_pressure(location.elevation_m)
-                wb = ps.wet_bulb(t, ps.humidity_ratio_from_rh(t, np.clip(rh, 1.0, 100.0) / 100.0, p), p)
-            if not np.isfinite(t + wb).any():
-                raise MeteomaticsError("parse", "Meteomatics returned no usable history for this site.")
-
-            def pick(kind: str, score: np.ndarray, label: str, detail: str) -> WeatherExtreme:
-                i = int(np.nanargmax(score))
-                return WeatherExtreme(
-                    kind=kind, label=label, detail=detail, time=series.times[i],
-                    replay_from=series.times[i] - timedelta(hours=REPLAY_LEAD_HOURS),
-                    t_2m_c=round(float(t[i]), 1), wet_bulb_c=round(float(wb[i]), 1),
-                    rh_pct=None if rh is None or np.isnan(rh[i]) else round(float(rh[i]), 0),
-                )  # fmt: skip
-
-            result = WeatherExtremes(
-                scanned_from=start,
-                scanned_to=end,
-                hours=len(series.times),
-                source=f"{PROVIDER} ({self.settings.meteomatics_source})",
-                extremes=[
-                    pick("wet_bulb", wb, "Highest wet-bulb", "Humid heat: the hardest hour for the cooling towers."),
-                    pick("dry_bulb", t, "Highest dry-bulb", "Peak heat: the hardest hour for the air-cooled plant."),
-                    pick("dry_air", t - wb, "Driest heat", "Largest gap between dry-bulb and wet-bulb: the most evaporation per unit of heat."),
-                ],
-            )
+            kept = self._extremes[1] if self._extremes else None
+            fresh = kept is not None and (now - kept.scanned_to).total_seconds() < 24 * 3600
+            waiting = self._scan_retry_at is not None and now < self._scan_retry_at
+            if kept is not None and (fresh or waiting):
+                return kept
+            try:
+                result = self._scan(location, now)
+            except MeteomaticsError:
+                self._scan_retry_at = now + timedelta(seconds=self.settings.retry_after_error_s)
+                if kept is None:
+                    raise
+                return kept
+            self._scan_retry_at = None
             self._extremes = (key, result)
             try:
                 self._cache_dir.mkdir(parents=True, exist_ok=True)
@@ -516,6 +487,50 @@ class WeatherService:
             except OSError:
                 pass
             return result
+
+    def _scan(self, location: Location, now: datetime) -> WeatherExtremes:
+        client = self._ready_client(now)
+        end = _floor_hour(now)
+        start = end - timedelta(days=SCAN_DAYS)
+        series = client.available_timeseries(
+            start, end, ["t_2m:C", "wet_bulb_t_2m:C", "relative_humidity_2m:p"], location.lat, location.lon
+        )
+
+        def column(pid: str) -> np.ndarray | None:
+            values = series.values.get(pid)
+            return None if values is None else np.array([np.nan if v is None else v for v in values], dtype=float)
+
+        t = column("t_2m:C")
+        rh = column("relative_humidity_2m:p")
+        wb = column("wet_bulb_t_2m:C")
+        if t is None or (wb is None and rh is None):
+            raise MeteomaticsError("parameter", "The account does not provide temperature and humidity history.")
+        if wb is None:
+            p = ps.standard_pressure(location.elevation_m)
+            wb = ps.wet_bulb(t, ps.humidity_ratio_from_rh(t, np.clip(rh, 1.0, 100.0) / 100.0, p), p)
+        if not np.isfinite(t + wb).any():
+            raise MeteomaticsError("parse", "Meteomatics returned no usable history for this site.")
+
+        def pick(kind: str, score: np.ndarray, label: str, detail: str) -> WeatherExtreme:
+            i = int(np.nanargmax(score))
+            return WeatherExtreme(
+                kind=kind, label=label, detail=detail, time=series.times[i],
+                replay_from=series.times[i] - timedelta(hours=REPLAY_LEAD_HOURS),
+                t_2m_c=round(float(t[i]), 1), wet_bulb_c=round(float(wb[i]), 1),
+                rh_pct=None if rh is None or np.isnan(rh[i]) else round(float(rh[i]), 0),
+            )  # fmt: skip
+
+        return WeatherExtremes(
+            scanned_from=start,
+            scanned_to=end,
+            hours=len(series.times),
+            source=f"{PROVIDER} ({self.settings.meteomatics_source})",
+            extremes=[
+                pick("wet_bulb", wb, "Highest wet-bulb", "Humid heat: the hardest hour for the cooling towers."),
+                pick("dry_bulb", t, "Highest dry-bulb", "Peak heat: the hardest hour for the air-cooled plant."),
+                pick("dry_air", t - wb, "Driest heat", "Largest gap between dry-bulb and wet-bulb: the most evaporation per unit of heat."),
+            ],
+        )
 
     def _load_extremes(self, key: str) -> tuple[str, WeatherExtremes] | None:
         path = self._cache_dir / f"{key}.json"
