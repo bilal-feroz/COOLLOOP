@@ -8,6 +8,8 @@ import type {
   OptimizationResult,
   Overview,
   SimulateResponse,
+  WeatherBundle,
+  WeatherExtremes,
 } from "./types";
 
 export class ApiError extends Error {
@@ -54,8 +56,9 @@ const post = <T>(path: string, body: unknown, signal?: AbortSignal) =>
 export const api = {
   overview: (horizonHours = 72) => request<Overview>(`/overview?horizon_hours=${horizonHours}`),
   refreshWeather: () => post<Overview>("/weather/refresh", {}),
-  settings: (body: { location?: Location; weather_mode?: "live" | "demo" }) =>
+  settings: (body: { location?: Location; weather_mode?: WeatherBundle["mode"]; replay_at?: string }) =>
     request<Overview>("/settings", { method: "PUT", body: JSON.stringify(body) }),
+  extremes: () => request<WeatherExtremes>("/weather/extremes"),
   simulate: (
     body: { config: OperatingConfig; ambient: AmbientOverride | null; horizon_hours: number; window_hours: number },
     signal?: AbortSignal,

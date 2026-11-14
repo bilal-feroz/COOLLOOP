@@ -11,6 +11,7 @@ import type {
   Overview,
   PointResult,
   SimulateResponse,
+  WeatherExtremes,
 } from "./types";
 
 export type View = "operations" | "twin" | "simulation" | "intelligence";
@@ -22,6 +23,9 @@ export const CONDITION_KEYS = ["it_load_kw", "tower_cells_online", "water_alloca
 
 let simAbort: AbortController | null = null;
 let simOptAbort: AbortController | null = null;
+// A result is kept only if nothing newer was asked for while it was computed.
+let optimisationRun = 0;
+let briefingRun = 0;
 
 interface AppState {
   view: View;
@@ -35,7 +39,14 @@ interface AppState {
   refresh: () => Promise<void>;
   refreshWeather: () => Promise<void>;
   setWeatherMode: (mode: "live" | "demo") => Promise<void>;
+  /** Replay real past weather with `at` (UTC) as "now". */
+  replay: (at: string, announce?: boolean) => Promise<void>;
   setLocation: (location: Location) => Promise<void>;
+
+  extremes: WeatherExtremes | null;
+  extremesStatus: Fetch;
+  extremesError: string | null;
+  loadExtremes: () => Promise<void>;
 
   optimisation: OptimizationResult | null;
   optimisationStatus: Fetch;
@@ -90,6 +101,37 @@ function message(error: unknown): string {
   return error instanceof Error ? error.message : "Unexpected error";
 }
 
+/** Everything computed from the weather is rebuilt once the weather changes. */
+const WEATHER_CHANGED = {
+  optimisation: null,
+  briefing: null,
+  optimisationStatus: "idle",
+  briefingStatus: "idle",
+  sim: null,
+  simOpt: null,
+} as const;
+
+/** Change the weather source or the site, then report what actually happened. */
+async function changeSettings(
+  set: (patch: Partial<AppState>) => void,
+  body: Parameters<typeof api.settings>[0],
+  done: string | null,
+  extra: Partial<AppState> = {},
+) {
+  set({ busy: true });
+  try {
+    const overview = await api.settings(body);
+    const empty = body.weather_mode !== undefined && overview.weather.hourly.length === 0;
+    const text = empty ? (overview.weather.error?.message ?? "No weather data is available in this mode.") : done;
+    const toast: AppState["toast"] = text ? { kind: empty ? "error" : "ok", text, at: Date.now() } : null;
+    set({ overview, ...WEATHER_CHANGED, ...extra, ...(toast ? { toast } : {}) });
+  } catch (error) {
+    set({ toast: { kind: "error", text: message(error), at: Date.now() } });
+  } finally {
+    set({ busy: false });
+  }
+}
+
 export const useApp = create<AppState>((set, get) => ({
   view: "operations",
   setView: (view) => set({ view, hovered: null }),
@@ -130,9 +172,11 @@ export const useApp = create<AppState>((set, get) => ({
         toast:
           weather.status === "live"
             ? { kind: "ok", text: "Weather updated from Meteomatics.", at: Date.now() }
-            : weather.status === "demo"
-              ? { kind: "ok", text: "Demo dataset reloaded.", at: Date.now() }
-              : { kind: "error", text: weather.error?.message ?? "Weather update failed.", at: Date.now() },
+            : weather.status === "replay"
+              ? { kind: "ok", text: "Replay period is loaded. Past weather does not change.", at: Date.now() }
+              : weather.status === "demo"
+                ? { kind: "ok", text: "Demo dataset reloaded.", at: Date.now() }
+                : { kind: "error", text: weather.error?.message ?? "Weather update failed.", at: Date.now() },
       });
     } catch (error) {
       set({ toast: { kind: "error", text: message(error), at: Date.now() } });
@@ -141,45 +185,26 @@ export const useApp = create<AppState>((set, get) => ({
     }
   },
 
-  setWeatherMode: async (mode) => {
-    set({ busy: true });
-    try {
-      const overview = await api.settings({ weather_mode: mode });
-      set({
-        overview,
-        optimisation: null,
-        briefing: null,
-        optimisationStatus: "idle",
-        briefingStatus: "idle",
-        sim: null,
-        simOpt: null,
-        toast: { kind: "ok", text: mode === "demo" ? "Demo mode: synthetic weather." : "Live weather mode.", at: Date.now() },
-      });
-    } catch (error) {
-      set({ toast: { kind: "error", text: message(error), at: Date.now() } });
-    } finally {
-      set({ busy: false });
-    }
-  },
+  setWeatherMode: (mode) =>
+    changeSettings(set, { weather_mode: mode }, mode === "demo" ? "Demo mode: synthetic weather." : "Live weather mode."),
 
-  setLocation: async (location) => {
-    set({ busy: true });
+  replay: (at, announce = true) =>
+    changeSettings(set, { weather_mode: "replay", replay_at: at }, announce ? "Replay mode: past weather from Meteomatics." : null),
+
+  // The hardest hours of the year belong to the site, so a new site starts over.
+  setLocation: (location) =>
+    changeSettings(set, { location }, `Site set to ${location.name}.`, { extremes: null, extremesStatus: "idle", extremesError: null }),
+
+  extremes: null,
+  extremesStatus: "idle",
+  extremesError: null,
+  loadExtremes: async () => {
+    if (get().extremesStatus === "loading") return;
+    set({ extremesStatus: "loading", extremesError: null });
     try {
-      const overview = await api.settings({ location });
-      set({
-        overview,
-        optimisation: null,
-        briefing: null,
-        optimisationStatus: "idle",
-        briefingStatus: "idle",
-        sim: null,
-        simOpt: null,
-        toast: { kind: "ok", text: `Site set to ${location.name}.`, at: Date.now() },
-      });
+      set({ extremes: await api.extremes(), extremesStatus: "ready" });
     } catch (error) {
-      set({ toast: { kind: "error", text: message(error), at: Date.now() } });
-    } finally {
-      set({ busy: false });
+      set({ extremesStatus: "error", extremesError: message(error) });
     }
   },
 
@@ -188,11 +213,13 @@ export const useApp = create<AppState>((set, get) => ({
   optimisationError: null,
   loadOptimisation: async () => {
     if (get().optimisationStatus === "loading") return;
+    const run = ++optimisationRun;
     set({ optimisationStatus: "loading", optimisationError: null });
     try {
-      set({ optimisation: await api.optimize({}), optimisationStatus: "ready" });
+      const optimisation = await api.optimize({});
+      if (run === optimisationRun) set({ optimisation, optimisationStatus: "ready" });
     } catch (error) {
-      set({ optimisation: null, optimisationStatus: "error", optimisationError: message(error) });
+      if (run === optimisationRun) set({ optimisation: null, optimisationStatus: "error", optimisationError: message(error) });
     }
   },
 
@@ -200,11 +227,13 @@ export const useApp = create<AppState>((set, get) => ({
   briefingStatus: "idle",
   loadBriefing: async () => {
     if (get().briefingStatus === "loading") return;
+    const run = ++briefingRun;
     set({ briefingStatus: "loading" });
     try {
-      set({ briefing: await api.briefing(), briefingStatus: "ready" });
+      const briefing = await api.briefing();
+      if (run === briefingRun) set({ briefing, briefingStatus: "ready" });
     } catch {
-      set({ briefingStatus: "error" });
+      if (run === briefingRun) set({ briefingStatus: "error" });
     }
   },
 

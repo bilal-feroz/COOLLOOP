@@ -43,6 +43,9 @@ class WeatherQuota(BaseModel):
     used_minute: int | None = None
     limit_minute: int | None = None
     historic_access: bool | None = None
+    historic_range: str | None = None  # as reported by the account
+    plan: str | None = None
+    valid_until: datetime | None = None  # when the account expires
     checked_at: datetime | None = None
 
 
@@ -53,9 +56,31 @@ class WeatherError(BaseModel):
     http_status: int | None = None
 
 
+class WeatherExtreme(BaseModel):
+    """An hour of real past weather that is worth replaying."""
+
+    kind: Literal["wet_bulb", "dry_bulb", "dry_air"]
+    label: str
+    detail: str
+    time: datetime  # the extreme hour itself
+    replay_from: datetime  # a little earlier, so the event is still ahead
+    t_2m_c: float
+    wet_bulb_c: float
+    rh_pct: float | None = None
+
+
+class WeatherExtremes(BaseModel):
+    scanned_from: datetime
+    scanned_to: datetime
+    hours: int
+    source: str
+    extremes: list[WeatherExtreme]
+
+
 class WeatherBundle(BaseModel):
-    mode: Literal["live", "demo"]
-    status: Literal["live", "cached", "demo", "unavailable", "not_configured"]
+    mode: Literal["live", "demo", "replay"]
+    status: Literal["live", "cached", "demo", "replay", "unavailable", "not_configured"]
+    replay_at: datetime | None = None  # the past moment being replayed as "now"
     synthetic: bool
     provider: str
     model: str | None = None
@@ -400,7 +425,8 @@ class ApplyRequest(BaseModel):
 
 class SettingsRequest(BaseModel):
     location: Location | None = None
-    weather_mode: Literal["live", "demo"] | None = None
+    weather_mode: Literal["live", "demo", "replay"] | None = None
+    replay_at: datetime | None = None  # required when switching to replay
 
 
 class AuditEntry(BaseModel):

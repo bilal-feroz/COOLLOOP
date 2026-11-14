@@ -52,10 +52,39 @@ export function dayClock(iso: string | Date | null | undefined, offsetHours: num
   return `${DAYS[d.getUTCDay()]} ${two(d.getUTCHours())}:${two(d.getUTCMinutes())}`;
 }
 
-export function dateClock(iso: string | Date | null | undefined, offsetHours: number): string {
+export function dateClock(iso: string | Date | null | undefined, offsetHours: number, year = false): string {
   if (!iso) return "–";
   const d = shifted(iso, offsetHours);
-  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${two(d.getUTCHours())}:${two(d.getUTCMinutes())}`;
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}${year ? ` ${d.getUTCFullYear()}` : ""} ${two(d.getUTCHours())}:${two(d.getUTCMinutes())}`;
+}
+
+/** Weekday, date, year and time, for moments that are not this week. */
+export function fullClock(iso: string | Date | null | undefined, offsetHours: number): string {
+  if (!iso) return "–";
+  return `${DAYS[shifted(iso, offsetHours).getUTCDay()]} ${dateClock(iso, offsetHours, true)}`;
+}
+
+export function dateOnly(iso: string | Date | null | undefined, offsetHours = 0): string {
+  if (!iso) return "–";
+  const d = shifted(iso, offsetHours);
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+/** Value for a `datetime-local` input that shows site time. */
+export function toLocalInput(iso: string | Date, offsetHours: number): string {
+  return shifted(iso, offsetHours).toISOString().slice(0, 16);
+}
+
+/** UTC timestamp of a `datetime-local` value entered in site time. */
+export function fromLocalInput(value: string, offsetHours: number): string | null {
+  const t = Date.parse(`${value.slice(0, 16)}:00Z`);
+  return Number.isNaN(t) ? null : new Date(t - offsetHours * 3_600_000).toISOString();
+}
+
+/** What the weather on screen is, in a few words. */
+export function weatherBasis(weather: { synthetic: boolean; status: string }): string {
+  if (weather.synthetic) return "synthetic demo profile";
+  return weather.status === "replay" ? "replayed Meteomatics history" : "Meteomatics forecast";
 }
 
 export function dayLabel(iso: string | Date, offsetHours: number): string {

@@ -67,7 +67,7 @@ _SYSTEM = """You are the {name} in COOLLOOP, an operations tool for a hybrid-coo
 How to work:
 - Call your tools before answering anything about the plant, the weather or the optimisation. Every figure you give must be one a tool returned in this conversation. If the tools do not hold the figure, say it is not available; do not estimate, extrapolate or recompute engineering values yourself, because the operator will act on them.
 - The facility is a synthetic reference design and every plant value is simulated. Say "simulated" or "projected", never "measured", and never describe projected savings as achieved.
-- The weather has a status: live, cached, or demo. Demo weather is synthetic and cached weather is stale. Mention the status when it affects how far the answer can be trusted.
+- The weather has a status: live, cached, replay, or demo. Demo weather is synthetic, cached weather is stale, and replay is real weather from a past date being run again. Mention the status when it affects how far the answer can be trusted, and never describe replayed conditions as current.
 - You cannot change the facility and have no tool that does. A configuration is applied only when an operator approves it in the interface. You may say which configuration you would put forward for approval, and why.
 
 How to answer: lead with the answer in one sentence, then the two or three numbers that support it, with units and the hour they refer to. Plain prose, no headings. Keep it under 150 words unless the operator asks for more depth."""
@@ -148,6 +148,9 @@ def build_tools(ctx: Context, used: list[str]) -> dict:
         w = ctx.weather
         out: dict = {
             "status": w.status, "synthetic": w.synthetic, "provider": w.provider, "model": w.model,
+            "replaying_past_moment_local": (
+                f"{w.replay_at + timedelta(hours=offset):%a %d %b %Y %H:%M}" if w.replay_at else None
+            ),
             "site": w.location.name, "local_time_utc_offset_h": offset,
             "fetched_at_utc": w.fetched_at, "last_success_utc": w.last_success_at,
             "wet_bulb_source": w.wet_bulb_source, "notice": w.notice,

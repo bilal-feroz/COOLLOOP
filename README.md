@@ -33,7 +33,7 @@ node dev.mjs
 
 Open http://localhost:3000. The application opens on the Operations control room.
 
-Without credentials it starts in **demo mode** on a deterministic synthetic weather profile, clearly labelled. To use live weather, see the next section.
+Without credentials it starts in **demo mode** on a deterministic synthetic weather profile, clearly labelled. To use live weather, and to replay real past heat events, see the next section.
 
 ## Meteomatics weather
 
@@ -57,13 +57,24 @@ What the weather service does (`backend/app/weather/`):
 | Verification | If a combined request is rejected, each parameter is tested on its own. Missing ones are dropped and reported in the UI. Wet-bulb is derived from temperature and humidity when the account lacks it, and labelled "derived" |
 | Current, forecast, history | One hourly request for the next 7 days, one for the previous 24 hours (optional: reported if the account does not allow it) |
 | Caching | 15 minutes in memory and on disk, so a restart does not spend queries |
-| Quota | `user_stats_json` is read every 10 minutes; live requests stop before the daily limit |
+| Quota | `user_stats_json` is read every 10 minutes; requests stop before the daily limit. The source panel also shows how far back the account's history goes and when the account expires |
 | Failures | Classified (credentials, permission, rate limit, server, timeout, network, format). The last good forecast is served and labelled **cached**. With no cache the status is **unavailable**. Live data is never replaced with synthetic data |
 | Location | Abu Dhabi by default; name, coordinates and UTC offset are editable in the top bar |
 
-Every weather payload carries its provider, source model, retrieval time, the API's own generation time, and whether it is live, cached or synthetic. The top bar shows this at all times.
+Every weather payload carries its provider, source model, retrieval time, the API's own generation time, and whether it is live, cached, replayed or synthetic. The top bar shows this at all times.
 
 Environmental evaporation from Meteomatics (`evaporation_1h`, negative means evaporation) is shown for context only. It is never used as cooling tower evaporation.
+
+### Replay: real past weather
+
+A cooling plant is only tested on its worst days, and today is rarely one of them. Replay mode runs the whole product on Meteomatics history instead of the live forecast.
+
+- **Finding the days that matter.** One hourly request covers the past 12 months at the site (8,761 values per parameter). From it the backend picks three hours: the highest wet-bulb, the highest dry-bulb and the driest heat. For Abu Dhabi, scanned in November 2026, the first of these is 13 August 2026 at 19:00, when wet-bulb reached 31.7 °C, 1.7 K above the tower design point.
+- **Replaying them.** A chosen hour is replayed from 12 hours earlier, so the event is still ahead and the plant can be prepared for it. Any other date and time can be entered.
+- **Walking through an event.** The replayed moment acts as "now": the hours before it are history, the hours after it are what actually followed. It can be moved by 1 or 6 hours, and the twin, the projection and the recommendation follow.
+- **Cost.** One request covers every moment of a replayed day, and past weather is kept on disk, so stepping through a replay spends no further queries and works without a connection once loaded.
+
+A replay is real Meteomatics data, but it is not current and it is not a forecast. A bar across every screen says so, the clock shows the replayed time, and the alerts and the briefing name the period. If a period cannot be retrieved, nothing is simulated and no data is substituted.
 
 ## The four screens
 
@@ -130,14 +141,14 @@ cd backend
 .venv\Scripts\python -m pytest
 ```
 
-90 tests: psychrometrics against reference values, water balance conservation, energy balance of chillers, towers and the whole plant, optimiser feasibility and determinism, the weather client against the documented URL and JSON formats (including failures, caching, quota and parameter fallback), the API end to end, and the Claude tool loop against a fake endpoint.
+100 tests: psychrometrics against reference values, water balance conservation, energy balance of chillers, towers and the whole plant, optimiser feasibility and determinism, the weather client against the documented URL and JSON formats (including failures, caching, quota, parameter fallback, replay and the scan for extreme hours), the API end to end, and the Claude tool loop against a fake endpoint.
 
 ## Layout
 
 ```
 backend/app
   physics/        psychrometrics, plant model, assumptions
-  weather/        Meteomatics client, caching service, synthetic demo dataset
+  weather/        Meteomatics client, caching service, replay, synthetic demo dataset
   optimizer.py    set-point optimisation and scenario comparison
   projection.py   hourly projection, tank trajectory, high-demand periods
   report.py       constraints, stress index, equipment states

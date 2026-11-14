@@ -24,7 +24,9 @@ from .schemas import (
     OptimizeRequest,
     SettingsRequest,
     SimulateRequest,
+    WeatherExtremes,
 )
+from .weather.meteomatics import MeteomaticsError
 
 app = FastAPI(
     title="COOLLOOP API",
@@ -81,7 +83,20 @@ def refresh_weather(engine: Engine = Depends(get_engine)) -> Overview:
 
 @app.put("/api/settings", response_model=Overview)
 def update_settings(req: SettingsRequest, engine: Engine = Depends(get_engine)) -> Overview:
-    return engine.update_settings(req)
+    try:
+        return engine.update_settings(req)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/weather/extremes", response_model=WeatherExtremes)
+def weather_extremes(engine: Engine = Depends(get_engine)) -> WeatherExtremes:
+    """The hours of the past year that stress the plant most, from real
+    Meteomatics history. Used to pick a moment to replay."""
+    try:
+        return engine.extremes()
+    except MeteomaticsError as exc:
+        raise HTTPException(status_code=409 if exc.kind == "not_configured" else 502, detail=exc.message) from exc
 
 
 @app.post("/api/simulate", response_model=SimulateResponse)

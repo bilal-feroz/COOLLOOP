@@ -7,6 +7,8 @@ from .facility import Facility, OperatingConfig
 from .schemas import Alert, PointResult, Projection, WeatherBundle
 
 _ORDER = {"critical": 0, "warning": 1, "info": 2}
+# What the hours ahead are, by weather status. Only live data is a forecast.
+_WEATHER_AHEAD = {"replay": "Replayed weather", "demo": "Synthetic weather"}
 
 
 def build_alerts(
@@ -45,6 +47,17 @@ def build_alerts(
                 id="weather-demo", severity="info", title="Demo mode: synthetic weather",
                 detail="Weather is a deterministic synthetic profile, not a forecast or an observation.",
                 source="Weather service",
+            )  # fmt: skip
+        )
+    elif weather.status == "replay" and weather.replay_at is not None:
+        alerts.append(
+            Alert(
+                id="weather-replay", severity="info", title="Replay mode: past weather",
+                detail=(
+                    f"Historical Meteomatics data from {weather.replay_at:%d %b %Y %H:%M} UTC is being "
+                    "replayed as if it were now. It is not the current weather and not a forecast."
+                ),
+                source="Weather service", time=weather.replay_at,
             )  # fmt: skip
         )
     if weather.wet_bulb_source == "derived":
@@ -99,12 +112,12 @@ def build_alerts(
             alerts.append(
                 Alert(
                     id="forecast-infeasible", severity="critical",
-                    title="Forecast hours break equipment limits",
+                    title="Hours ahead break equipment limits",
                     detail=(
                         f"{day.infeasible_hours} of the next {day.hours} hours violate a limit "
                         "with the current configuration."
                     ),
-                    source="Forecast projection", time=day.max_stress_time,
+                    source="Simulated projection", time=day.max_stress_time,
                 )  # fmt: skip
             )
         utilisation = day.allocation_utilisation
@@ -116,7 +129,7 @@ def build_alerts(
                         f"Projected makeup for the next {day.hours} h is {day.makeup_m3:.0f} m³ against "
                         f"an allocation of {day.allocation_m3:.0f} m³."
                     ),
-                    source="Forecast projection", time=day.peak_makeup_time,
+                    source="Simulated projection", time=day.peak_makeup_time,
                 )  # fmt: skip
             )
         elif utilisation is not None and utilisation > 0.9:
@@ -127,7 +140,7 @@ def build_alerts(
                         f"Projected makeup for the next {day.hours} h is {day.makeup_m3:.0f} m³, "
                         f"{utilisation * 100:.0f} % of the {day.allocation_m3:.0f} m³ allocation."
                     ),
-                    source="Forecast projection", time=day.peak_makeup_time,
+                    source="Simulated projection", time=day.peak_makeup_time,
                 )  # fmt: skip
             )
         reserve = fac.tank_reserve_fraction * 100.0
@@ -138,20 +151,20 @@ def build_alerts(
                     id="tank-reserve", severity="critical", title="Tank falls below its reserve",
                     detail=(
                         f"Stored water is projected to fall to {horizon.min_tank_level_pct:.0f} % "
-                        f"(reserve {reserve:.0f} %) within the forecast."
+                        f"(reserve {reserve:.0f} %) within the next {horizon.hours} h."
                     ),
-                    source="Forecast projection",
+                    source="Simulated projection",
                 )  # fmt: skip
             )
         elif horizon.min_tank_level_pct < reserve + 15.0:
             alerts.append(
                 Alert(
-                    id="tank-low", severity="warning", title="Tank drawdown forecast",
+                    id="tank-low", severity="warning", title="Tank drawdown ahead",
                     detail=(
                         f"Stored water is projected to fall to {horizon.min_tank_level_pct:.0f} % "
-                        f"within the forecast (reserve {reserve:.0f} %)."
+                        f"within the next {horizon.hours} h (reserve {reserve:.0f} %)."
                     ),
-                    source="Forecast projection",
+                    source="Simulated projection",
                 )  # fmt: skip
             )
         if horizon.max_wet_bulb_c >= fac.tower_design_wet_bulb_c - 0.5:
@@ -159,10 +172,10 @@ def build_alerts(
                 Alert(
                     id="wet-bulb-design", severity="warning", title="Wet-bulb near the tower design point",
                     detail=(
-                        f"Wet-bulb is forecast to reach {horizon.max_wet_bulb_c:.1f} °C "
+                        f"Wet-bulb reaches {horizon.max_wet_bulb_c:.1f} °C in the next {horizon.hours} h "
                         f"(tower design {fac.tower_design_wet_bulb_c:.0f} °C)."
                     ),
-                    source="Weather forecast", time=horizon.max_wet_bulb_time,
+                    source=_WEATHER_AHEAD.get(weather.status, "Weather forecast"), time=horizon.max_wet_bulb_time,
                 )  # fmt: skip
             )
         for period in projection.periods:
@@ -173,7 +186,7 @@ def build_alerts(
                         severity="critical" if period.level == "critical" else "warning",
                         title="Thermal headroom is short" if period.kind == "thermal" else "Dry plant near capacity",
                         detail=f"{period.detail} Lasts {period.hours} h.",
-                        source="Forecast projection", time=period.start,
+                        source="Simulated projection", time=period.start,
                     )  # fmt: skip
                 )
 

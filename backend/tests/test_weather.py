@@ -24,13 +24,22 @@ VALUES = {
 class FakeMeteomatics:
     """Minimal stand-in for api.meteomatics.com."""
 
-    def __init__(self, missing=(), fail_status=None, raise_exc=None, garbage=False, deny_history=False):
+    def __init__(
+        self, missing=(), fail_status=None, raise_exc=None, garbage=False, deny_history=False,
+        stats=None, shape=None,
+    ):  # fmt: skip
         self.missing = set(missing)
         self.fail_status = fail_status
         self.raise_exc = raise_exc
         self.garbage = garbage
         self.deny_history = deny_history
+        self.stats = stats or {}  # extra or replaced fields of the account statistics
+        self.shape = shape  # optional (parameter, time) -> value
         self.requests: list[httpx.Request] = []
+
+    @property
+    def data_requests(self) -> list[httpx.Request]:
+        return [r for r in self.requests if r.url.path != "/user_stats_json"]
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -44,6 +53,7 @@ class FakeMeteomatics:
                 "requests since last UTC midnight": {"used": 41, "soft limit": 0, "hard limit": 500},
                 "requests in the last 60 seconds": {"used": 2, "soft limit": 0, "hard limit": 15},
                 "historic request option": True,
+                **self.stats,
             }})  # fmt: skip
         if self.garbage:
             return httpx.Response(200, text="<html>not json</html>")
@@ -66,7 +76,11 @@ class FakeMeteomatics:
         times = [start + timedelta(hours=k) for k in range(int((end - start).total_seconds() // 3600) + 1)]
         data = [
             {"parameter": pid, "coordinates": [{"lat": 24.4539, "lon": 54.3773, "dates": [
-                {"date": t.strftime("%Y-%m-%dT%H:%M:%SZ"), "value": VALUES[pid] + 0.1 * k} for k, t in enumerate(times)
+                {
+                    "date": t.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "value": self.shape(pid, t) if self.shape else VALUES[pid] + 0.1 * k,
+                }
+                for k, t in enumerate(times)
             ]}]}
             for pid in ids
         ]  # fmt: skip
@@ -154,7 +168,22 @@ def test_quota_is_read_from_user_stats():
     quota = client_for(FakeMeteomatics()).user_stats()
     assert (quota.used_today, quota.limit_today) == (41, 500)
     assert (quota.used_minute, quota.limit_minute) == (2, 15)
+    assert quota.historic_access is True and quota.valid_until is None
+
+
+def test_account_statistics_in_the_shape_the_live_api_returns():
+    """The real endpoint reports history as a date range and adds the plan
+    and the day the account expires."""
+    fake = FakeMeteomatics(stats={
+        "historic request option": "1900-01-01T00:00:00Z--2028-11-14T00:00:00Z",
+        "mix type": "premium_all_1k",
+        "hard deadline": "2026-11-22T00:00:00Z",
+    })  # fmt: skip
+    quota = client_for(fake).user_stats()
     assert quota.historic_access is True
+    assert quota.historic_range == "1900-01-01T00:00:00Z--2028-11-14T00:00:00Z"
+    assert quota.plan == "premium_all_1k"
+    assert quota.valid_until == datetime(2026, 11, 22, tzinfo=timezone.utc)
 
 
 # --- service ------------------------------------------------------------------------
@@ -255,6 +284,132 @@ def test_daily_quota_stops_live_requests(tmp_path):
     bundle = service.bundle(force=True)
     assert bundle.status == "cached" and bundle.error.kind == "quota"
     assert len([r for r in fake.requests if r.url.path != "/user_stats_json"]) == len(data_requests)
+
+
+# --- replay of past weather -----------------------------------------------------------
+HEATWAVE = datetime(2026, 8, 13, 3, 40, tzinfo=timezone.utc)
+
+
+def replay_for(tmp_path, fake, clock=None, at=HEATWAVE):
+    service, store, clock = service_for(tmp_path, fake, clock=clock)
+    store.set_weather_mode("replay")
+    if at is not None:
+        store.set_replay_at(at)
+    return service, store, clock
+
+
+def test_replay_serves_history_around_the_chosen_moment(tmp_path):
+    fake = FakeMeteomatics()
+    service, _, _ = replay_for(tmp_path, fake)
+    bundle = service.bundle()
+    at = HEATWAVE.replace(minute=0)
+    assert bundle.mode == "replay" and bundle.status == "replay" and not bundle.synthetic
+    assert bundle.replay_at == at and bundle.current.time == at
+    assert len(bundle.history) == 24 and len(bundle.hourly) == 169
+    assert bundle.history[-1].time == at - timedelta(hours=1)
+    assert bundle.provider == "Meteomatics Weather API" and bundle.fetched_at == NOW
+    assert "13 Aug 2026 07:00" in bundle.notice and "not a forecast" in bundle.notice
+    assert "today's forecast" not in bundle.notice
+    # One request covers the whole chosen day: the day before it and the week after.
+    assert len(fake.data_requests) == 1
+    assert fake.data_requests[0].url.path.startswith("/2026-08-12T00:00:00Z--2026-08-20T23:00:00Z:PT1H/")
+
+
+def test_stepping_through_a_replayed_day_needs_no_further_requests(tmp_path):
+    fake = FakeMeteomatics()
+    service, store, _ = replay_for(tmp_path, fake)
+    first = service.bundle()
+    store.set_replay_at(HEATWAVE + timedelta(hours=12))
+    later = service.bundle()
+    assert later.current.time == first.current.time + timedelta(hours=12)
+    assert later.current == first.hourly[12] and later.history[-1] == first.hourly[11]
+    assert len(later.hourly) == 169 and len(later.history) == 24
+    assert len(fake.data_requests) == 1
+    store.set_replay_at(HEATWAVE + timedelta(days=1))  # the next day is a new request
+    assert service.bundle().current.time == first.current.time + timedelta(days=1)
+    assert len(fake.data_requests) == 2
+
+
+def test_replay_is_fetched_once_and_survives_a_restart(tmp_path):
+    fake = FakeMeteomatics()
+    service, _, clock = replay_for(tmp_path, fake)
+    first = service.bundle()
+    clock[0] = NOW + timedelta(hours=3)
+    assert service.bundle(force=True).current == first.current  # the past does not change
+    assert len(fake.data_requests) == 1
+    offline = FakeMeteomatics(fail_status=500)
+    restarted, _, _ = replay_for(tmp_path, offline, clock=[NOW + timedelta(days=30)])
+    bundle = restarted.bundle()
+    assert bundle.status == "replay" and bundle.error is None and offline.requests == []
+    assert bundle.current == first.current
+
+
+def test_a_replay_that_cannot_be_retrieved_is_reported_not_replaced(tmp_path):
+    service, _, _ = replay_for(tmp_path, FakeMeteomatics(fail_status=403))
+    bundle = service.bundle()
+    assert bundle.status == "unavailable" and not bundle.synthetic
+    assert bundle.hourly == [] and bundle.current is None
+    assert bundle.error.kind == "forbidden" and "No substitute data" in bundle.notice
+
+
+def test_replay_needs_a_moment_and_credentials(tmp_path):
+    service, _, _ = replay_for(tmp_path, FakeMeteomatics(), at=None)
+    bundle = service.bundle()
+    assert bundle.status == "unavailable" and bundle.error.kind == "replay"
+    bare, store, _ = service_for(tmp_path / "bare", FakeMeteomatics(), configured=False)
+    store.set_weather_mode("replay")
+    store.set_replay_at(HEATWAVE)
+    assert bare.bundle().status == "not_configured"
+
+
+def test_a_recent_replay_says_where_its_last_hours_come_from(tmp_path):
+    service, _, _ = replay_for(tmp_path, FakeMeteomatics(), at=NOW - timedelta(days=2))
+    bundle = service.bundle()
+    assert bundle.status == "replay" and bundle.hourly[-1].time > NOW
+    assert "today's forecast" in bundle.notice
+
+
+def test_extreme_hours_come_from_one_scan_of_the_past_year(tmp_path):
+    humid = datetime(2026, 8, 13, 15, tzinfo=timezone.utc)
+    hottest = datetime(2026, 8, 18, 9, tzinfo=timezone.utc)
+    driest = datetime(2026, 8, 30, 9, tzinfo=timezone.utc)
+    spikes = {humid: (35.0, 31.0, 75.0), hottest: (46.0, 28.0, 25.0), driest: (44.0, 22.0, 12.0)}
+
+    def shape(pid, t):
+        temp, wet_bulb, rh = spikes.get(t, (30.0, 20.0, 40.0))
+        return {"t_2m:C": temp, "wet_bulb_t_2m:C": wet_bulb, "relative_humidity_2m:p": rh}[pid]
+
+    fake = FakeMeteomatics(shape=shape)
+    service, _, clock = service_for(tmp_path, fake)
+    found = service.extremes()
+    by_kind = {e.kind: e for e in found.extremes}
+    assert [e.kind for e in found.extremes] == ["wet_bulb", "dry_bulb", "dry_air"]
+    assert by_kind["wet_bulb"].time == humid and by_kind["wet_bulb"].wet_bulb_c == 31.0
+    assert by_kind["dry_bulb"].time == hottest and by_kind["dry_bulb"].t_2m_c == 46.0
+    assert by_kind["dry_air"].time == driest and by_kind["dry_air"].rh_pct == 12.0
+    assert by_kind["wet_bulb"].replay_from == humid - timedelta(hours=12)
+    assert found.hours == 365 * 24 + 1 and found.scanned_to == NOW.replace(minute=0)
+    assert len(fake.data_requests) == 1
+    assert fake.data_requests[0].url.path.startswith("/2025-11-14T10:00:00Z--2026-11-14T10:00:00Z:PT1H/")
+    # Kept for a day, also across a restart, then scanned again.
+    clock[0] = NOW + timedelta(hours=5)
+    assert service.extremes() == found and len(fake.data_requests) == 1
+    restarted, _, _ = service_for(tmp_path, FakeMeteomatics(fail_status=500), clock=[NOW + timedelta(hours=6)])
+    assert restarted.extremes() == found
+    clock[0] = NOW + timedelta(hours=25)
+    service.extremes()
+    assert len(fake.data_requests) == 2
+
+
+def test_extremes_are_never_invented(tmp_path):
+    bare, _, _ = service_for(tmp_path / "bare", FakeMeteomatics(), configured=False)
+    with pytest.raises(MeteomaticsError) as err:
+        bare.extremes()
+    assert err.value.kind == "not_configured"
+    denied, _, _ = service_for(tmp_path / "denied", FakeMeteomatics(fail_status=403))
+    with pytest.raises(MeteomaticsError) as err:
+        denied.extremes()
+    assert err.value.kind == "forbidden"
 
 
 # --- demo dataset ---------------------------------------------------------------------

@@ -52,9 +52,32 @@ export interface WeatherParameter {
   detail: string;
 }
 
+/** An hour of real past weather worth replaying. */
+export interface WeatherExtreme {
+  kind: "wet_bulb" | "dry_bulb" | "dry_air";
+  label: string;
+  detail: string;
+  time: string;
+  /** A little before `time`, so the event is still ahead when the replay starts. */
+  replay_from: string;
+  t_2m_c: number;
+  wet_bulb_c: number;
+  rh_pct: number | null;
+}
+
+export interface WeatherExtremes {
+  scanned_from: string;
+  scanned_to: string;
+  hours: number;
+  source: string;
+  extremes: WeatherExtreme[];
+}
+
 export interface WeatherBundle {
-  mode: "live" | "demo";
-  status: "live" | "cached" | "demo" | "unavailable" | "not_configured";
+  mode: "live" | "demo" | "replay";
+  status: "live" | "cached" | "demo" | "replay" | "unavailable" | "not_configured";
+  /** The past moment being replayed as "now". Null outside replay mode. */
+  replay_at: string | null;
   synthetic: boolean;
   provider: string;
   model: string | null;
@@ -76,6 +99,9 @@ export interface WeatherBundle {
     used_minute: number | null;
     limit_minute: number | null;
     historic_access: boolean | null;
+    historic_range: string | null;
+    plan: string | null;
+    valid_until: string | null;
     checked_at: string | null;
   } | null;
   notice: string;

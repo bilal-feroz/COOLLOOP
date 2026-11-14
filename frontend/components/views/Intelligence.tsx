@@ -17,9 +17,9 @@ const SEVERITY: Record<Severity, { colour: string; label: string }> = {
 
 const TOOL_LABEL: Record<string, string> = {
   get_weather_summary: "Weather summary",
-  get_hourly_forecast: "Hourly forecast",
+  get_hourly_forecast: "Hourly weather",
   get_operating_point: "Simulated operating point",
-  get_projection: "Forecast projection",
+  get_projection: "Simulated projection",
   get_optimisation: "Optimisation result",
   get_facility_and_assumptions: "Facility and assumptions",
 };
@@ -390,7 +390,10 @@ export default function Intelligence() {
                 <Tag colour={basis.weather_status === "live" ? "var(--color-accent)" : "var(--color-warn)"}>{basis.weather_synthetic ? "synthetic" : basis.weather_status}</Tag>
               </span>
               <span>
-                Forecast: <span className="num text-ink-2">{dayClock(basis.forecast_from, offset)} to {dayClock(basis.forecast_to, offset)}</span>
+                {basis.weather_status === "replay" ? "Replayed period" : "Forecast"}:{" "}
+                <span className="num text-ink-2">
+                  {basis.weather_status === "replay" ? dateClock(basis.forecast_from, offset, true) : dayClock(basis.forecast_from, offset)} to {dayClock(basis.forecast_to, offset)}
+                </span>
               </span>
               <span>
                 Configuration: <span className="text-ink-2">{basis.config_source}</span>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { num } from "@/lib/format";
+import { num, weatherBasis } from "@/lib/format";
 import { CONDITION_KEYS, useApp, useOffset } from "@/lib/store";
 import type { Constraint, ControlSpec, OperatingConfig, Scenario, ScenarioKey } from "@/lib/types";
 import { ApprovalDialog, type ApprovalRequest, diffConfig } from "../Approval";
@@ -153,7 +153,7 @@ function Parameters() {
           value={ambientMode}
           onChange={(mode) => (mode === "forecast" && !hasWeather ? undefined : setAmbientMode(mode))}
           options={[
-            { value: "forecast", label: "Forecast", title: hasWeather ? "Follow the weather forecast hour by hour" : "No weather data available" },
+            { value: "forecast", label: "Weather", title: hasWeather ? `Follow the ${weatherBasis(overview.weather)} hour by hour` : "No weather data available" },
             { value: "manual", label: "Manual", title: "Hold one ambient condition for the whole window" },
           ]}
         />
@@ -203,7 +203,7 @@ function Parameters() {
         </div>
         {ambientMode === "forecast" && (
           <div className="mt-1.5 text-[11px] leading-snug text-ink-3">
-            Following the {overview.weather.synthetic ? "synthetic demo profile" : "Meteomatics forecast"}. Switch to manual to test a fixed condition.
+            Following the {weatherBasis(overview.weather)}. Switch to manual to test a fixed condition.
           </div>
         )}
       </Section>
@@ -433,7 +433,9 @@ export default function Simulation() {
   const draftKey = JSON.stringify(draft);
   const ambientKey = ambientMode === "manual" ? `${manual.t_db_c}|${manual.rh_pct}` : "forecast";
   const conditionKey = draft ? CONDITION_KEYS.map((k) => draft[k]).join("|") : "";
-  const weatherKey = overview?.weather.fetched_at ?? "";
+  // A new retrieval, a new hour or a moved replay all change the weather under the draft.
+  const weather = overview?.weather;
+  const weatherKey = weather ? [weather.status, weather.current?.time, weather.synthetic ? "" : weather.fetched_at].join("|") : "";
   const appliedKey = JSON.stringify(overview?.config);
   useEffect(() => {
     if (!draft) return;
@@ -490,7 +492,7 @@ export default function Simulation() {
           <div className="flex items-baseline gap-2.5">
             <span className="label">Scenario comparison</span>
             <span className="text-[11px] text-ink-3">
-              {ambientMode === "manual" ? "manual ambient held for the window" : overview.weather.synthetic ? "synthetic demo profile" : "Meteomatics forecast"}
+              {ambientMode === "manual" ? "manual ambient held for the window" : weatherBasis(overview.weather)}
             </span>
             {solving && <span className="label pulse text-accent">Solving</span>}
             {simStatus === "loading" && !solving && <span className="label pulse">Recalculating</span>}

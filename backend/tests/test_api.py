@@ -127,6 +127,18 @@ def test_live_mode_without_credentials_fails_honestly_but_stays_usable(api):
     assert back["weather"]["status"] == "demo" and back["now"] is not None
 
 
+def test_replay_settings_are_validated(api):
+    assert api.put("/api/settings", json={"weather_mode": "replay"}).status_code == 400
+    future = api.put("/api/settings", json={"weather_mode": "replay", "replay_at": "2999-01-01T00:00:00Z"})
+    assert future.status_code == 400 and "past" in future.json()["detail"]
+    assert api.get("/api/overview").json()["weather"]["status"] == "demo"  # nothing was switched
+    # Without credentials a replay cannot run, and it does not fall back to made-up data.
+    body = api.put("/api/settings", json={"weather_mode": "replay", "replay_at": "2026-08-13T03:00:00Z"}).json()
+    assert body["weather"]["mode"] == "replay" and body["weather"]["status"] == "not_configured"
+    assert body["weather"]["hourly"] == [] and body["now"] is None
+    assert api.get("/api/weather/extremes").status_code == 409
+
+
 def test_site_coordinates_are_configurable(api):
     body = api.put(
         "/api/settings",

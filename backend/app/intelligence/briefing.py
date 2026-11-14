@@ -112,7 +112,7 @@ def climate_section(fac: Facility, weather: WeatherBundle, projection: Projectio
     if now is None or projection is None:
         return AnalystSection(
             role="climate", name="Climate Analyst",
-            remit="Reads the weather forecast and flags environmental risk to cooling.",
+            remit="Reads the weather ahead and flags environmental risk to cooling.",
             headline="No weather data is available, so no climate assessment can be made.",
             findings=[
                 Finding(
@@ -145,7 +145,7 @@ def climate_section(fac: Facility, weather: WeatherBundle, projection: Projectio
     peak_gap = design_wb - horizon.max_wet_bulb_c
     findings.append(
         Finding(
-            title="Peak wet-bulb in the forecast",
+            title="Peak wet-bulb ahead",
             detail=(
                 f"Wet-bulb peaks at {horizon.max_wet_bulb_c:.1f} °C on "
                 f"{_local(horizon.max_wet_bulb_time, loc)}, "
@@ -218,9 +218,9 @@ def climate_section(fac: Facility, weather: WeatherBundle, projection: Projectio
             Finding(
                 title="Precipitation",
                 detail=(
-                    f"{rain:.1f} mm of rain is forecast in the period. It is not credited as makeup water."
+                    f"{rain:.1f} mm of rain falls in the period. It is not credited as makeup water."
                 ),
-                evidence=[_m("Forecast precipitation", rain, "mm", 1)],
+                evidence=[_m("Precipitation in the period", rain, "mm", 1)],
             )
         )
 
@@ -230,6 +230,14 @@ def climate_section(fac: Facility, weather: WeatherBundle, projection: Projectio
         "live": "Live Meteomatics forecast.",
         "cached": "Cached Meteomatics forecast: the last live update failed.",
         "demo": "Synthetic demo profile, not a forecast.",
+        "replay": (
+            "Replay of historical Meteomatics data"
+            + (
+                f" from {weather.replay_at + timedelta(hours=loc.utc_offset_hours):%a %d %b %Y %H:%M} site time"
+                if weather.replay_at else ""
+            )
+            + ". Past conditions, not the current weather and not a forecast."
+        ),
     }.get(weather.status, weather.status)
     if derived:
         quality += f" Derived here: {', '.join(derived)}."
@@ -239,7 +247,7 @@ def climate_section(fac: Facility, weather: WeatherBundle, projection: Projectio
         Finding(
             title="Data basis",
             detail=quality,
-            severity="info" if weather.status == "live" else "watch",
+            severity="info" if weather.status in ("live", "replay") else "watch",
         )
     )
 
@@ -252,7 +260,7 @@ def climate_section(fac: Facility, weather: WeatherBundle, projection: Projectio
     }[worst.severity]
     return AnalystSection(
         role="climate", name="Climate Analyst",
-        remit="Reads the weather forecast and flags environmental risk to cooling.",
+        remit="Reads the weather ahead and flags environmental risk to cooling.",
         headline=headline, findings=findings,
     )  # fmt: skip
 
@@ -340,7 +348,7 @@ def thermal_section(
             Finding(
                 title="Upcoming high-demand periods",
                 detail=(
-                    f"Makeup demand is highest in {len(windows)} period{plural} of the forecast: {spans}. "
+                    f"Makeup demand is highest in {len(windows)} period{plural} of the next {projection.horizon.hours} h: {spans}. "
                     "These are the hours to protect stored water."
                 ),
                 severity=rank[worst_level],

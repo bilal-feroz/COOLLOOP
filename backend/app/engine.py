@@ -35,6 +35,7 @@ from .schemas import (
     SimulateRequest,
     SolverInfo,
     WeatherBundle,
+    WeatherExtremes,
     WindowSummary,
 )
 from .store import Store, utcnow
@@ -192,7 +193,8 @@ class Engine:
     def _window(self, bundle: WeatherBundle, hours: int, override: AmbientOverride | None) -> Window:
         location = bundle.location
         if override is not None:
-            start = utcnow().replace(minute=0, second=0, microsecond=0)
+            # Same clock as the weather on screen: the present, or the replayed moment.
+            start = bundle.hourly[0].time if bundle.hourly else utcnow().replace(minute=0, second=0, microsecond=0)
             times = [start + timedelta(hours=k) for k in range(hours)]
             return Window(times, ambient_from_override(override, location, hours), "manual")
         rows = bundle.hourly[:hours]
@@ -322,11 +324,23 @@ class Engine:
         return self.store.audit()
 
     def update_settings(self, req: SettingsRequest) -> Overview:
+        if req.replay_at is not None:
+            # A time sent without a zone is taken as UTC, like every other timestamp here.
+            moment = req.replay_at if req.replay_at.tzinfo else req.replay_at.replace(tzinfo=timezone.utc)
+            if moment > utcnow():
+                raise ValueError("A replay has to start in the past.")
+            self.store.set_replay_at(moment)
+        if req.weather_mode == "replay" and self.store.replay_at() is None:
+            raise ValueError("Choose a date and time to replay.")
         if req.location is not None:
             self.store.set_location(req.location)
         if req.weather_mode is not None:
             self.store.set_weather_mode(req.weather_mode)
         return self.overview(force_weather=req.location is not None)
+
+    def extremes(self) -> WeatherExtremes:
+        self._follow_env_file()
+        return self.weather.extremes()
 
     # --- intelligence -------------------------------------------------------------------------
     def _previous_day(self, bundle: WeatherBundle, cfg: OperatingConfig) -> WindowSummary | None:

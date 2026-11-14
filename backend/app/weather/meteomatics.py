@@ -248,12 +248,23 @@ class MeteomaticsClient:
 
         used_day, limit_day = pick("requests since last utc midnight")
         used_min, limit_min = pick("requests in the last 60 seconds")
+        # The account reports history either as a flag or as a date range.
         historic = stats.get("historic request option")
+        if isinstance(historic, bool):
+            historic_access, historic_range = historic, None
+        elif isinstance(historic, str) and historic.strip():
+            historic_access, historic_range = True, historic.strip()
+        else:
+            historic_access, historic_range = None, None
+        plan = stats.get("mix type")
         return WeatherQuota(
             used_today=used_day,
             limit_today=limit_day,
             used_minute=used_min,
             limit_minute=limit_min,
-            historic_access=historic if isinstance(historic, bool) else None,
+            historic_access=historic_access,
+            historic_range=historic_range,
+            plan=plan if isinstance(plan, str) and plan else None,
+            valid_until=_parse_time(stats.get("hard deadline") if isinstance(stats.get("hard deadline"), str) else None),
             checked_at=datetime.now(timezone.utc),
         )

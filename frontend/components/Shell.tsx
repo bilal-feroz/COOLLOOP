@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { fullClock } from "@/lib/format";
 import { useApp, type View } from "@/lib/store";
+import type { WeatherBundle } from "@/lib/types";
+import { useNow } from "./charts";
 import { TopBar } from "./TopBar";
 import { TwinHost } from "./twin/TwinViewport";
-import { Btn, Icon } from "./ui";
+import { Btn, Icon, Tag } from "./ui";
 import DigitalTwin from "./views/DigitalTwin";
 import Intelligence from "./views/Intelligence";
 import Operations from "./views/Operations";
@@ -30,6 +33,52 @@ function Toast() {
     >
       <Icon name={toast.kind === "ok" ? "check" : "alert"} size={13} className="shrink-0" />
       {toast.text}
+    </div>
+  );
+}
+
+const HOUR = 3_600_000;
+const REPLAY_NOTE = "Past Meteomatics weather replayed as if it were now. Not current conditions, and the hours ahead are what followed, not a forecast.";
+
+/** Shown for as long as past weather stands in for the present. It names the
+ *  replayed moment and moves it, so a past event can be walked through. */
+function ReplayBar({ weather }: { weather: WeatherBundle }) {
+  const replay = useApp((s) => s.replay);
+  const setWeatherMode = useApp((s) => s.setWeatherMode);
+  const busy = useApp((s) => s.busy);
+  const now = useNow(60_000);
+  if (!weather.replay_at) return null;
+  const at = Date.parse(weather.replay_at);
+  const quiet = "num h-[22px] border border-line-2 px-2 text-[11px] leading-none text-ink-2 transition-colors hover:border-ink-3 hover:text-ink disabled:opacity-40 disabled:hover:border-line-2 disabled:hover:text-ink-2";
+  const step = (hours: number) => (
+    <button
+      onClick={() => replay(new Date(at + hours * HOUR).toISOString(), false)}
+      disabled={busy || at + hours * HOUR > now}
+      title={`Move the replayed moment ${Math.abs(hours)} h ${hours < 0 ? "earlier" : "later"}`}
+      className={quiet}
+    >
+      {hours < 0 ? `−${-hours} h` : `+${hours} h`}
+    </button>
+  );
+  return (
+    <div className="flex h-8 shrink-0 items-center gap-3 border-b border-warn/40 bg-warn/[0.07] px-3.5 text-[11.5px]">
+      <Tag colour="var(--color-warn)">
+        <Icon name="replay" size={11} />
+        Replay
+      </Tag>
+      <div className="flex shrink-0 items-center gap-1.5">
+        {step(-6)}
+        {step(-1)}
+        <span className="num px-1.5 text-ink">{fullClock(weather.replay_at, weather.location.utc_offset_hours)}</span>
+        {step(1)}
+        {step(6)}
+      </div>
+      <span className="min-w-0 truncate text-ink-2" title={weather.status === "replay" ? REPLAY_NOTE : undefined}>
+        {weather.status === "replay" ? REPLAY_NOTE : "This period could not be retrieved, so nothing is simulated. No substitute data is shown."}
+      </span>
+      <button onClick={() => setWeatherMode("live")} disabled={busy} className={`${quiet} ml-auto shrink-0 text-ink`} title="Leave the replay and follow the live forecast">
+        Back to live
+      </button>
     </div>
   );
 }
@@ -123,6 +172,7 @@ export default function Shell() {
           Backend connection lost. Showing the last values received; retrying.
         </div>
       )}
+      {overview?.weather.mode === "replay" && <ReplayBar weather={overview.weather} />}
       <main className="min-h-0 flex-1">
         {!overview ? (
           <Startup />

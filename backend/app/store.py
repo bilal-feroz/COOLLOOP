@@ -99,6 +99,19 @@ class Store:
             self._state["weather_mode"] = mode
             self._save()
 
+    def replay_at(self) -> datetime | None:
+        with self._lock:
+            raw = self._state.get("replay_at")
+        try:
+            return datetime.fromisoformat(raw) if raw else None
+        except ValueError:
+            return None
+
+    def set_replay_at(self, moment: datetime) -> None:
+        with self._lock:
+            self._state["replay_at"] = moment.astimezone(timezone.utc).isoformat()
+            self._save()
+
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)

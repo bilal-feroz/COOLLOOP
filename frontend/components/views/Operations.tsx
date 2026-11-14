@@ -1,6 +1,6 @@
 "use client";
 
-import { clock, dayClock, num } from "@/lib/format";
+import { clock, dayClock, fullClock, num } from "@/lib/format";
 import { useApp, useOffset } from "@/lib/store";
 import type { Alert, Overview } from "@/lib/types";
 import { StressLegend, StressStrip, TimeChart } from "../charts";
@@ -46,6 +46,11 @@ function Environment({ overview }: { overview: Overview }) {
               <Icon name="refresh" size={12} />
               Retry
             </Btn>
+            {weather.mode === "replay" && (
+              <Btn onClick={() => setWeatherMode("live")} disabled={busy} title="Leave the replay and follow the live forecast">
+                Back to live
+              </Btn>
+            )}
             <Btn onClick={() => setWeatherMode("demo")} disabled={busy} title="Use the labelled synthetic dataset">
               Use demo dataset
             </Btn>
@@ -63,6 +68,7 @@ function Environment({ overview }: { overview: Overview }) {
           <span className="flex items-center gap-2">
             {weather.synthetic && <Tag colour="var(--color-warn)">Synthetic</Tag>}
             {weather.status === "cached" && <Tag colour="var(--color-warn)">Cached</Tag>}
+            {weather.status === "replay" && <Tag colour="var(--color-warn)">Replay</Tag>}
             <span className="text-[11px] text-ink-3">{weather.location.name}</span>
           </span>
         }
@@ -76,13 +82,13 @@ function Environment({ overview }: { overview: Overview }) {
           <Stat label="Pressure" value={now.pressure_hpa} unit="hPa" digits={0} size="sm" />
         </div>
         <div className="mt-3 text-[11px] leading-snug text-ink-3">
-          Valid {dayClock(now.time, offset)}. {weather.provider}
+          Valid {weather.status === "replay" ? fullClock(now.time, offset) : dayClock(now.time, offset)}. {weather.provider}
           {weather.model && !weather.synthetic ? `, source ${weather.model}` : ""}.
           {weather.wet_bulb_source === "derived" ? " Wet-bulb derived from temperature and humidity." : ""}
         </div>
       </Section>
 
-      <Section title={past.length ? `Weather, last ${past.length} h and next 72 h` : "Forecast, next 72 h"}>
+      <Section title={past.length ? `Weather, last ${past.length} h and next 72 h` : "Weather, next 72 h"}>
         <div className="space-y-4">
           <TimeChart
             title="Temperature"
@@ -151,7 +157,7 @@ function Environment({ overview }: { overview: Overview }) {
             />
           </div>
           <p className="mt-2.5 text-[11px] leading-snug text-ink-3">
-            The applied configuration held for every forecast hour.
+            The applied configuration held for every hour ahead.
             {demandBands.length > 0 ? " Shaded hours are the periods of highest water demand." : ""}
           </p>
         </Section>
