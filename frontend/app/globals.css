@@ -44,6 +44,12 @@ body {
   overflow: hidden;
 }
 
+/* The control room needs about 1180 px. A narrower window scrolls sideways
+   instead of cutting panels off. */
+body {
+  overflow-x: auto;
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--color-line-2) transparent;

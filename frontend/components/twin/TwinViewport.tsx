@@ -63,9 +63,12 @@ export function TwinHost() {
     observer.observe(el);
     observer.observe(document.body);
     window.addEventListener("resize", sync);
+    // The canvas is fixed to the window, so it follows any scrolling by hand.
+    document.addEventListener("scroll", sync, true);
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", sync);
+      document.removeEventListener("scroll", sync, true);
     };
   }, [el]);
 
