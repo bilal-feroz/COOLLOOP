@@ -374,13 +374,16 @@ class OptimizationResult(BaseModel):
 
 # --- requests ----------------------------------------------------------------
 class SimulateRequest(BaseModel):
-    config: OperatingConfig
-    ambient: AmbientOverride | None = None
-    horizon_hours: int = Field(72, ge=6, le=168)
+    config: OperatingConfig  # the draft being edited
+    ambient: AmbientOverride | None = None  # manual ambient instead of the forecast
+    horizon_hours: int = Field(72, ge=6, le=168)  # projection length
+    window_hours: int = Field(24, ge=6, le=72)  # comparison window
 
 
 class OptimizeRequest(BaseModel):
-    config: OperatingConfig | None = None  # baseline; defaults to the applied one
+    # Only the conditions (IT load, cells in service, water allocation) are
+    # taken from this config; the baseline set points are the applied ones.
+    config: OperatingConfig | None = None
     ambient: AmbientOverride | None = None
     window_hours: int = Field(24, ge=6, le=72)
     water_saving: Objective = Objective(w_water=0.85, w_energy=0.15)

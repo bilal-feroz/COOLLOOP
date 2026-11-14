@@ -50,6 +50,10 @@ class Settings:
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     load_dotenv(ROOT / ".env")
+    # An empty key in .env must not shadow other Anthropic credential sources.
+    for name in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
+        if os.environ.get(name, None) == "":
+            del os.environ[name]
     return Settings(
         meteomatics_username=os.getenv("METEOMATICS_USERNAME", "").strip(),
         meteomatics_password=os.getenv("METEOMATICS_PASSWORD", "").strip(),
