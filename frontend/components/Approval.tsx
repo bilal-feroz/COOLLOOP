@@ -23,17 +23,21 @@ export function ChangeList({ changes }: { changes: ParameterChange[] }) {
   if (!changes.length) return <div className="text-[11.5px] text-ink-3">No set points change.</div>;
   return (
     <div className="border-t border-line">
-      {changes.map((c) => (
-        <div key={c.key} className="flex items-baseline justify-between gap-3 border-b border-line py-[5px] text-[11.5px]">
-          <span className="text-ink-2">{c.label}</span>
-          <span className="num whitespace-nowrap">
-            <span className="text-ink-3">{num(c.before, Number.isInteger(c.before) && Number.isInteger(c.after) ? 0 : 1)}</span>
-            <span className="mx-1.5 text-ink-3">→</span>
-            <span className="text-ink">{num(c.after, Number.isInteger(c.before) && Number.isInteger(c.after) ? 0 : 1)}</span>
-            {c.unit && <span className="ml-1 text-ink-3">{c.unit}</span>}
-          </span>
-        </div>
-      ))}
+      {changes.map((c) => {
+        const whole = (v: number) => Math.abs(v - Math.round(v)) < 1e-6;
+        const digits = whole(c.before) && whole(c.after) ? 0 : 1;
+        return (
+          <div key={c.key} className="flex items-baseline justify-between gap-3 border-b border-line py-[5px] text-[11.5px]">
+            <span className="text-ink-2">{c.label}</span>
+            <span className="num whitespace-nowrap">
+              <span className="text-ink-3">{num(c.before, digits)}</span>
+              <span className="mx-1.5 text-ink-3">→</span>
+              <span className="text-ink">{num(c.after, digits)}</span>
+              {c.unit && <span className="ml-1 text-ink-3">{c.unit}</span>}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }

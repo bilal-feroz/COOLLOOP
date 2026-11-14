@@ -460,6 +460,7 @@ export default function Simulation() {
     scenarios.map((s) => ({ key: s.key, label: s.label, colour: SCENARIO_COLOUR[s.key], values: pick(s), dashed: s.key === "draft" }));
   const draftScenario = sim?.draft;
   const controls = overview.controls;
+  const pending = diffConfig(controls, overview.config, draft);
 
   const approve = (s: Scenario) => {
     const config = s.key === "draft" ? draft : { ...draft, ...Object.fromEntries(SETPOINT_KEYS.map((k) => [k, s.config[k]])) };
@@ -630,14 +631,14 @@ export default function Simulation() {
             )}
             <Section title="Apply">
               <p className="text-[11.5px] leading-snug text-ink-2">
-                {draftScenario?.changes.length
-                  ? `The draft changes ${draftScenario.changes.length} set point${draftScenario.changes.length > 1 ? "s" : ""}. Nothing is applied until an operator approves it.`
+                {pending.length
+                  ? `The draft changes ${pending.length} value${pending.length > 1 ? "s" : ""} of the applied configuration. Nothing is applied until an operator approves it.`
                   : "The draft matches the applied configuration. Move a slider or load a scenario to compare."}
               </p>
               <Btn
                 kind="primary"
                 className="mt-3 w-full"
-                disabled={!draftScenario || diffConfig(controls, overview.config, draft).length === 0}
+                disabled={!draftScenario || pending.length === 0}
                 onClick={() => draftScenario && approve(draftScenario)}
               >
                 <Icon name="lock" size={12} />

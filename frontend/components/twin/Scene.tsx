@@ -7,6 +7,7 @@ import type { EquipmentState, PointResult } from "@/lib/types";
 import { AccFans, AirFlow, Beacons, type Drivers, Plumes, Tank, TowerFans, useLoadGlow } from "./Dynamics";
 import { accParts, chillerParts, pumpParts, towerParts, towerRowParts } from "./equipment";
 import { Interaction } from "./Interaction";
+import { LabelProjector } from "./Labels";
 import { Kit, place } from "./kit";
 import { ACC_POS, CHILLER_X, CHILLER_Z, CHW_PUMP_Z, CW_PUMP_Z, ROOF_DECK_Y, TOWER_X, TOWER_Z } from "./layout";
 import { materials } from "./materials";
@@ -118,6 +119,7 @@ export function Scene() {
       <Plumes drivers={drivers} visible={heat} />
       <AirFlow drivers={drivers} visible={air} />
       <Interaction equipment={equipment} />
+      <LabelProjector />
     </group>
   );
 }

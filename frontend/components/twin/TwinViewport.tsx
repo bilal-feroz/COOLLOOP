@@ -10,6 +10,7 @@
 import dynamic from "next/dynamic";
 import { useLayoutEffect, useRef } from "react";
 import { create } from "zustand";
+import { LabelLayer } from "./Labels";
 
 const TwinCanvas = dynamic(() => import("./TwinCanvas"), {
   ssr: false,
@@ -73,6 +74,7 @@ export function TwinHost() {
       <TwinCanvas active={el !== null} />
       {/* Soft falloff toward the edges so the model sits in the frame. */}
       <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 85% 80% at 50% 46%, transparent 58%, rgba(5,7,9,0.62) 100%)" }} />
+      <LabelLayer />
     </div>
   );
 }

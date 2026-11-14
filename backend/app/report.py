@@ -364,20 +364,20 @@ def _warnings(fac, cfg, st, i, constraints) -> list[str]:
         out.append("Towers cannot reject the wet-plant heat load at these settings.")
     for c in constraints:
         if c.status == "violated":
-            out.append(f"{c.label} {c.value:g} {c.unit} violates its limit of {c.limit:g} {c.unit}.")
+            out.append(f"{c.label} {c.value:.4g} {c.unit} violates its limit of {c.limit:.4g} {c.unit}.")
         elif c.status == "warning" and c.id == "water_rate" and (c.margin or 0) < 0:
             out.append(
                 f"Makeup demand rate {c.value:.0f} m³/day exceeds the {c.limit:.0f} m³/day "
                 "allocation; stored water is being drawn down."
             )
         elif c.status == "warning":
-            out.append(f"{c.label} {c.value:g} {c.unit} is close to its limit of {c.limit:g} {c.unit}.")
+            out.append(f"{c.label} {c.value:.4g} {c.unit} is close to its limit of {c.limit:.4g} {c.unit}.")
     if wet_on and cfg.tower_cells_online < fac.tower_cells_duty:
         missing = fac.tower_cell_count - cfg.tower_cells_online
         out.append(f"{missing} of {fac.tower_cell_count} tower cells are out of service.")
     if wet_on:
         latent = float(st.q_latent_kw[i] / max(float(st.q_rej_wet_kw[i]), 1e-9))
-        if latent > 1.0:
+        if latent > 1.05:
             out.append(
                 f"Hot, dry air: latent fraction {latent:.2f}. The tower air is cooled while it "
                 "is humidified, so evaporation exceeds what the heat load alone would need."

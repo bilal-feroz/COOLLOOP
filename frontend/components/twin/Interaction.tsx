@@ -1,12 +1,11 @@
 "use client";
 
-// Picking, highlighting and labelling of equipment.
+// Picking and highlighting of equipment (labels live in Labels.tsx).
 //
 // Every selectable item has an invisible pick volume. Hover and selection draw
 // CAD-style corner brackets around it; abnormal states draw a pulsing ring on
 // the ground so they are visible from any camera angle.
 
-import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -68,32 +67,11 @@ function StateRing({ node, colour }: { node: Node; colour: string }) {
   );
 }
 
-function Label({ node, item, mode }: { node: Node; item: EquipmentState | undefined; mode: "tag" | "full" }) {
-  const colour = STATE_COLOURS[item?.state ?? "off"];
-  return (
-    <Html position={node.anchor} center zIndexRange={[30, 10]} style={{ pointerEvents: "none" }}>
-      <div className="flex flex-col items-center whitespace-nowrap">
-        <div
-          className={`flex items-center gap-1.5 border bg-[#0a0d10e6] px-1.5 py-[3px] ${
-            mode === "full" ? "border-[#3cc7e6]" : "border-[#28313a]"
-          }`}
-        >
-          <span className="h-[6px] w-[6px] rounded-full" style={{ background: colour }} />
-          <span className="num text-[10.5px] leading-none text-[#e7ebee]">{item?.tag ?? node.id}</span>
-          {mode === "full" && item && <span className="text-[10.5px] leading-none text-[#a3acb4]">{item.summary}</span>}
-        </div>
-        <div className="h-3 w-px bg-[#3a454e]" />
-      </div>
-    </Html>
-  );
-}
-
 const ABNORMAL = new Set(["warning", "fault"]);
 
 export function Interaction({ equipment }: { equipment: Record<string, EquipmentState> }) {
   const selected = useApp((s) => s.selected);
   const hovered = useApp((s) => s.hovered);
-  const labels = useApp((s) => s.layers.labels);
   const select = useApp((s) => s.select);
   const hover = useApp((s) => s.hover);
 
@@ -133,16 +111,6 @@ export function Interaction({ equipment }: { equipment: Record<string, Equipment
 
       {selectedNode?.center && <Brackets node={selectedNode} colour="#3cc7e6" strong />}
       {hoveredNode?.center && <Brackets node={hoveredNode} colour="#a3acb4" strong={false} />}
-
-      {NODES.map((node) => {
-        const item = equipment[node.id];
-        const isSelected = node.id === selected;
-        const isHovered = node.id === hovered;
-        const abnormal = item ? ABNORMAL.has(item.state) : false;
-        if (!(labels || isSelected || isHovered || abnormal)) return null;
-        if (!labels && !isSelected && !isHovered && !node.center) return null;
-        return <Label key={node.id} node={node} item={item} mode={isSelected || isHovered ? "full" : "tag"} />;
-      })}
     </group>
   );
 }

@@ -86,6 +86,10 @@ function Rig({ interacting }: { interacting: React.RefObject<number> }) {
   useEffect(() => {
     if (!moved.current) applyPreset(false);
   }, [applyPreset]);
+  useEffect(() => {
+    applyPreset(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
 
   // In the Digital Twin view, selecting an item frames it from the current
   // viewing direction.
@@ -163,6 +167,10 @@ export default function TwinCanvas({ active }: { active: boolean }) {
       gl={{ antialias: true, powerPreference: "high-performance" }}
       camera={{ fov: FOV, near: 2, far: 1800, position: [130, 90, 120] }}
       onPointerMissed={() => select(null)}
+      onCreated={({ gl }) => {
+        // Development aid: lets a console read draw calls and triangle counts.
+        if (process.env.NODE_ENV !== "production") (window as unknown as { __gl?: THREE.WebGLRenderer }).__gl = gl;
+      }}
     >
       <color attach="background" args={["#07090b"]} />
       <fog attach="fog" args={["#07090b", 330, 820]} />

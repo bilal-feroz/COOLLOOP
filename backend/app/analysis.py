@@ -76,7 +76,7 @@ def build_alerts(
                 alerts.append(
                     Alert(
                         id=f"now-{c.id}", severity="critical", title=f"{c.label} out of limits",
-                        detail=f"{c.value:g} {c.unit} against a limit of {c.limit:g} {c.unit}. {c.detail}.",
+                        detail=f"{c.value:.4g} {c.unit} against a limit of {c.limit:.4g} {c.unit}. {c.detail}.",
                         source="Simulated operating point", time=now.conditions.time,
                     )  # fmt: skip
                 )
