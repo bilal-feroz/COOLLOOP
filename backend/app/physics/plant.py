@@ -55,6 +55,12 @@ def _sat_enthalpy(t_c, p):
     return ps.CP_DA * t_c + _sat_humidity_ratio(t_c, p) * (ps.HFG_0 + ps.CP_WV * t_c)
 
 
+def _sat_enthalpy_pair(t_a, t_b, p):
+    """Saturation enthalpy at two temperatures with a single table lookup."""
+    hs = _sat_enthalpy(np.stack((t_a, t_b)), p)
+    return hs[0], hs[1]
+
+
 def _t_from_sat_enthalpy(h, p):
     """Temperature of saturated air with enthalpy `h`: table guess at standard
     pressure, then three Newton steps at the actual pressure."""
@@ -66,14 +72,37 @@ def _t_from_sat_enthalpy(h, p):
     return t
 
 
-def _solve_bracketed(f, lo, hi, bisections: int = 4, secants: int = 8):
+def _illinois(f, a, fa, b, fb, iterations: int):
+    """Illinois regula falsi on a bracket [a, b] with f(a) < 0 <= f(b)."""
+    for _ in range(iterations):
+        denom = fb - fa
+        ok = np.abs(denom) > 1e-12
+        c = np.where(ok, b - fb * (b - a) / np.where(ok, denom, 1.0), 0.5 * (a + b))
+        fc = f(c)
+        cross = fc * fb < 0.0
+        a = np.where(cross, b, a)
+        fa = np.where(cross, fb, 0.5 * fa)
+        b, fb = c, fc
+    return b
+
+
+def _solve_bracketed(f, lo, hi, guess=None, bisections: int = 4, secants: int = 6):
     """Vectorised root of a monotonic increasing residual on [lo, hi].
 
     A few bisections shrink the bracket, then Illinois regula falsi converges
     super-linearly. Returns (root, solvable). Elements whose residual is still
     negative at `hi` are unsolvable and return `hi`; elements already
     non-negative at `lo` return `lo`.
+
+    `guess` is an optional previous solution. When the root of every element
+    lies within 0.4 K of it, the search starts from that narrow bracket, which
+    is what makes the optimiser's finite-difference steps cheap.
     """
+    if guess is not None and guess.shape == np.shape(lo):
+        a, b = guess - 0.4, guess + 0.4
+        fa, fb = f(a), f(b)
+        if np.all((fa < 0.0) & (fb >= 0.0)):
+            return _illinois(f, a, fa, b, fb, 4), np.ones(guess.shape, dtype=bool)
     lo0, hi0 = lo, hi
     f_lo = f(lo)
     f_hi = f(hi)
@@ -87,17 +116,7 @@ def _solve_bracketed(f, lo, hi, bisections: int = 4, secants: int = 8):
         f_lo = np.where(neg, f_mid, f_lo)
         hi = np.where(neg, hi, mid)
         f_hi = np.where(neg, f_hi, f_mid)
-    a, fa, b, fb = lo, f_lo, hi, f_hi
-    for _ in range(secants):
-        denom = fb - fa
-        ok = np.abs(denom) > 1e-12
-        c = np.where(ok, b - fb * (b - a) / np.where(ok, denom, 1.0), 0.5 * (a + b))
-        fc = f(c)
-        cross = fc * fb < 0.0
-        a = np.where(cross, b, a)
-        fa = np.where(cross, fb, 0.5 * fa)
-        b, fb = c, fc
-    root = np.where(solvable, b, hi0)
+    root = np.where(solvable, _illinois(f, lo, f_lo, hi, f_hi, secants), hi0)
     return np.where(at_floor, lo0, root), solvable
 
 
@@ -267,8 +286,7 @@ def tower_heat_rejection(m_air, m_water, t_w_in, t_w_out, h_air_in, p, ntu):
     Returns (q_kw, air_side_effectiveness).
     """
     d_t = np.maximum(t_w_in - t_w_out, 0.05)
-    hs_in = _sat_enthalpy(t_w_in, p)
-    hs_out = _sat_enthalpy(t_w_in - d_t, p)
+    hs_in, hs_out = _sat_enthalpy_pair(t_w_in, t_w_in - d_t, p)
     c_s = (hs_in - hs_out) / d_t  # saturation specific heat, kJ/(kg.K)
     m_star = m_air * c_s / (m_water * ps.CP_W)
     one_minus = 1.0 - m_star
@@ -313,8 +331,12 @@ def tower_ntu_coefficient(fac: Facility) -> float:
     )
 
 
-def simulate(fac: Facility, ctl: Controls, amb: Ambient) -> PlantState:
-    """Solve the plant for the given set points and ambient conditions."""
+def simulate(fac: Facility, ctl: Controls, amb: Ambient, guess: np.ndarray | None = None) -> PlantState:
+    """Solve the plant for the given set points and ambient conditions.
+
+    `guess` may carry the condenser return temperatures of a nearby solution
+    (see `_solve_bracketed`); it changes the cost of the solve, not the result.
+    """
     if amb.t_wb_c is None and amb.rh is None:
         raise ValueError("Ambient needs a wet-bulb temperature or a relative humidity")
 
@@ -394,7 +416,9 @@ def simulate(fac: Facility, ctl: Controls, amb: Ambient) -> PlantState:
     # Towers must reject exactly what the chillers send them. The residual is
     # monotonic in the return temperature, so one bracketed solve covers every
     # hour of the horizon at once.
-    t_cwr, tower_solved = _solve_bracketed(lambda t: balance(t)[0], t_wb - 1.0, t_wb + 45.0)
+    t_cwr, tower_solved = _solve_bracketed(
+        lambda t: balance(t)[0], t_wb - 1.0, t_wb + 45.0, guess=guess
+    )
     _, wc_cop, q_rej_wet, rng, eff = balance(t_cwr)
     t_cws = t_cwr - rng
     q_rej_wet = np.where(wet_on, q_rej_wet, 0.0)
@@ -404,10 +428,10 @@ def simulate(fac: Facility, ctl: Controls, amb: Ambient) -> PlantState:
     h_out = h_in + (q_rej_wet / n_cells) / m_a_cell
     carry = np.exp(-ntu)
     h_surface = h_in + (h_out - h_in) / (1.0 - carry)
-    w_surface = _sat_humidity_ratio(_t_from_sat_enthalpy(h_surface, p), p)
+    w_sat = _sat_humidity_ratio(_t_from_sat_enthalpy(np.stack((h_surface, h_out)), p), p)
+    w_surface, w_sat_out = w_sat[0], w_sat[1]
     w_out = w_surface + (w_in - w_surface) * carry
     # Leaving air cannot hold more vapour than saturation at its own enthalpy.
-    w_sat_out = _sat_humidity_ratio(_t_from_sat_enthalpy(h_out, p), p)
     w_out = np.clip(w_out, w_in, w_sat_out)
     t_air_out = ps.dry_bulb_from_enthalpy(h_out, w_out)
 

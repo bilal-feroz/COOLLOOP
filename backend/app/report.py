@@ -84,6 +84,11 @@ class _Spec:
     def margin(self) -> np.ndarray:
         return self.limit - self.value if self.kind == "max" else self.value - self.limit
 
+    @property
+    def scale(self) -> float:
+        """Typical size of the margin, used to put constraints on one scale."""
+        return {"°C": 5.0, "K": 5.0, "%": 100.0, "kW": 10_000.0}.get(self.unit, 1.0)
+
 
 def _full(st: PlantState, value) -> np.ndarray:
     return np.broadcast_to(np.asarray(value, dtype=float), st.t_db_c.shape)
@@ -102,7 +107,7 @@ def constraint_specs(fac: Facility, allocation_m3_day: float, st: PlantState) ->
     return [
         _Spec(
             "cws_high", "Condenser water supply", "°C", "max", st.t_cws_c,
-            _full(st, fac.cws_max_c), _full(st, 1.5), st.wet_on,
+            _full(st, fac.cws_max_c), _full(st, 1.0), st.wet_on,
             "Chiller condenser entering-water limit",
         ),
         _Spec(
@@ -193,6 +198,19 @@ def worst_constraints(specs: list[_Spec], window: slice) -> list[Constraint]:
             continue
         rows.append(_row(spec, int(idx[np.argmin(spec.margin()[idx])])))
     return rows
+
+
+def scaled_margins(specs: list[_Spec], tier: float) -> np.ndarray:
+    """Hard-constraint margins for the optimiser, of order one and >= 0 when
+    satisfied. `tier` 1 keeps the warning band of every limit as an operating
+    margin; `tier` 0 only respects the limits themselves."""
+    parts = []
+    for spec in specs:
+        if not spec.hard or spec.id == "coc":  # COC is a simple bound
+            continue
+        value = (spec.margin() - tier * spec.warn) / spec.scale
+        parts.append(np.where(spec.applicable, np.minimum(value, 5.0), 1.0).ravel())
+    return np.concatenate(parts)
 
 
 def hard_feasible(specs: list[_Spec], st: PlantState) -> np.ndarray:

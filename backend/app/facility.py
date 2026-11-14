@@ -146,3 +146,15 @@ class AmbientOverride(BaseModel):
 
 FACILITY = Facility()
 BASELINE_CONFIG = OperatingConfig()
+
+# How each set point is presented to an operator: label, unit, display scale.
+PARAMETER_META: dict[str, tuple[str, str, float]] = {
+    "it_load_kw": ("IT load", "kW", 1.0),
+    "chw_supply_c": ("Chilled water supply", "°C", 1.0),
+    "tower_fan_speed": ("Tower fan speed", "%", 100.0),
+    "cw_pump_speed": ("Condenser pump speed", "%", 100.0),
+    "cycles_of_concentration": ("Cycles of concentration", "", 1.0),
+    "wet_fraction": ("Evaporative share of cooling", "%", 100.0),
+    "tower_cells_online": ("Tower cells in service", "", 1.0),
+    "water_allocation_m3_day": ("Water allocation", "m³/day", 1.0),
+}
