@@ -24,16 +24,22 @@ const TOOL_LABEL: Record<string, string> = {
   get_facility_and_assumptions: "Facility and assumptions",
 };
 
+/** A finding folds to its title and two lines; a click opens the full text
+ *  and the values it rests on. */
 function FindingRow({ finding }: { finding: Finding }) {
   const s = SEVERITY[finding.severity];
+  const [open, setOpen] = useState(false);
   return (
-    <li className="border-t border-line px-3 py-2.5">
-      <div className="flex items-start gap-2">
-        <span className="mt-[5px] h-[7px] w-[7px] shrink-0" style={{ background: s.colour }} title={s.label} />
-        <div className="min-w-0">
-          <div className="text-[12px] text-ink">{finding.title}</div>
-          <p className="mt-1 text-[11.5px] leading-[1.5] text-ink-2">{finding.detail}</p>
-          {finding.evidence.length > 0 && (
+    <li className="border-t border-line">
+      <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full items-start gap-2 px-3 py-2.5 text-left transition-colors hover:bg-raised/60">
+        <span className="mt-[5px] h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: s.colour }} title={s.label} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-[12.5px] font-medium text-ink">{finding.title}</span>
+            <Icon name="chevron" size={10} className={`shrink-0 text-ink-3 transition-transform ${open ? "rotate-90" : ""}`} />
+          </div>
+          <p className={`mt-1 text-[12px] leading-[1.5] text-ink-2 ${open ? "" : "line-clamp-2"}`}>{finding.detail}</p>
+          {open && finding.evidence.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
               {finding.evidence
                 .filter((e) => e.value !== null)
@@ -46,7 +52,7 @@ function FindingRow({ finding }: { finding: Finding }) {
             </div>
           )}
         </div>
-      </div>
+      </button>
     </li>
   );
 }
@@ -57,11 +63,10 @@ function Analyst({ section }: { section: AnalystSection }) {
     <div className="flex min-h-0 min-w-0 flex-col border-r border-line last:border-r-0">
       <div className="border-b border-line px-3 pb-3 pt-2.5">
         <div className="flex items-center justify-between gap-2">
-          <span className="label">{section.name}</span>
+          <span className="title">{section.name}</span>
           <Tag colour={SEVERITY[worst].colour}>{SEVERITY[worst].label}</Tag>
         </div>
-        <p className="mt-2 text-[13px] leading-snug text-ink">{section.headline}</p>
-        <p className="mt-1.5 text-[11px] leading-snug text-ink-3">{section.remit}</p>
+        <p className="mt-2 text-[14px] leading-snug text-ink">{section.headline}</p>
       </div>
       <ul className="min-h-0 flex-1 overflow-y-auto [&>li:first-child]:border-t-0">
         {section.findings.map((f) => (
@@ -75,6 +80,7 @@ function Analyst({ section }: { section: AnalystSection }) {
 
 function RecommendationPanel({ briefing, onApprove }: { briefing: Briefing; onApprove: (r: ApprovalRequest) => void }) {
   const overview = useApp((s) => s.overview)!;
+  const [why, setWhy] = useState(false);
   const dismiss = useApp((s) => s.dismiss);
   const setView = useApp((s) => s.setView);
   const loadDraft = useApp((s) => s.loadDraft);
@@ -120,14 +126,19 @@ function RecommendationPanel({ briefing, onApprove }: { briefing: Briefing; onAp
         <>
           <div className="label mb-1.5 mt-3">Set-point changes</div>
           <ChangeList changes={rec.changes} />
-          <div className="label mb-1.5 mt-3">Why each change</div>
-          <ul className="space-y-1.5">
-            {rec.rationale.map((line) => (
-              <li key={line} className="border-l border-line-2 pl-2.5 text-[11.5px] leading-snug text-ink-2">
-                {line}
-              </li>
-            ))}
-          </ul>
+          <button onClick={() => setWhy((v) => !v)} aria-expanded={why} className="mt-3 flex items-center gap-1.5 text-[12px] text-ink-2 hover:text-ink">
+            <Icon name="chevron" size={10} className={`transition-transform ${why ? "rotate-90" : ""}`} />
+            Why each change
+          </button>
+          {why && (
+            <ul className="mt-2 space-y-1.5">
+              {rec.rationale.map((line) => (
+                <li key={line} className="border-l border-line-2 pl-2.5 text-[11.5px] leading-snug text-ink-2">
+                  {line}
+                </li>
+              ))}
+            </ul>
+          )}
         </>
       )}
 

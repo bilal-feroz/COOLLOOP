@@ -78,11 +78,11 @@ A replay is real Meteomatics data, but it is not current and it is not a forecas
 
 ## The four screens
 
-**Operations** is the control room: current conditions, the 72-hour forecast, the projected water and cooling power, the cooling stress timeline, alerts, and the latest recommendation, around the live 3D facility.
+**Operations** tells the story in one screen. A headline says how much water the cooling takes right now, the 3D facility sits under it, and a 72-hour timeline puts air temperature and water demand on one time axis so the hot afternoons visibly line up with the thirsty hours. A rail beside it reads in three steps: the weather outside, the water needed against the allowance, and the recommended change with its water and energy trade, approved in place.
 
 **Digital twin** is the full 3D model: data hall with 400 racks, five water-cooled chillers, four air-cooled chillers, a five-cell cooling tower, pumps, storage tank, makeup line, blowdown outlet and colour-coded pipe circuits. Everything is procedural geometry, no downloaded assets. Equipment is selectable from the model or the list. Fan speed, flow direction, vapour plumes, tank level and status markers follow the simulation.
 
-**Simulation** is the what-if bench. Sliders for IT load, ambient conditions, set points, tower fan speed, pump speed, cycles of concentration, water availability and the wet/dry split. Every change recalculates. Three scenarios are compared side by side (current, water-saving, balanced) together with the operator's draft.
+**Simulation** is the what-if bench. Sliders for IT load, ambient conditions, set points, tower fan speed, pump speed, cycles of concentration, water availability and the wet/dry split. Every change recalculates. Three scenarios are compared side by side (current, water-saving, balanced) together with the operator's draft. It opens on the figures that decide between scenarios; every other figure, the solver report and the constraint checks are one click away.
 
 **Intelligence** is the briefing: three analyst roles (climate, thermal, operations planner) explain the risks, the consumption and the recommendation, each finding with the values it rests on. The recommendation is approved or dismissed here.
 

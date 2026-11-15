@@ -371,12 +371,6 @@ export function TopBar() {
       </nav>
 
       <div className="ml-auto flex items-stretch">
-        {overview && (
-          <div className="hidden items-center gap-2.5 whitespace-nowrap border-l border-line px-3.5 min-[1400px]:flex" title={overview.facility.notice}>
-            <span className="num text-[12px] text-ink">{overview.facility.id}</span>
-            <Tag colour="var(--color-ink-3)">Synthetic facility</Tag>
-          </div>
-        )}
         <div ref={wrap} className="relative flex items-stretch border-l border-line">
           <button
             onClick={() => setOpen((v) => !v)}

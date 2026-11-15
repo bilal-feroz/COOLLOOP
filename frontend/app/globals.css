@@ -56,6 +56,9 @@
   --color-serious: #e07a4c;
   --color-crit: #e5604f;
   --color-neutral: #8c8374;
+  --color-s1: #7aa3df;
+  --color-s2: #e38a5a;
+  --color-s3: #5fb594;
   color: var(--color-ink);
 }
 

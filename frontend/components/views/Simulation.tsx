@@ -250,27 +250,55 @@ function Parameters() {
 }
 
 // --- comparison table ----------------------------------------------------------------------
-type Row = { label: string; unit?: string; digits: number; get: (s: Scenario) => number | null; delta?: (s: Scenario) => number | null | undefined; rule?: boolean };
+type Row = {
+  label: string;
+  unit?: string;
+  digits: number;
+  get: (s: Scenario) => number | null;
+  delta?: (s: Scenario) => number | null | undefined;
+  rule?: boolean;
+  /** Shown in the short view: the figures that decide between scenarios. */
+  key?: boolean;
+};
 
 const ROWS: Row[] = [
-  { label: "Makeup water", unit: "m³", digits: 0, get: (s) => s.summary.makeup_m3, delta: (s) => s.deltas?.makeup_pct },
+  { label: "Makeup water", unit: "m³", digits: 0, get: (s) => s.summary.makeup_m3, delta: (s) => s.deltas?.makeup_pct, key: true },
   { label: "Evaporation", unit: "m³", digits: 0, get: (s) => s.summary.evaporation_m3 },
   { label: "Blowdown", unit: "m³", digits: 0, get: (s) => s.summary.blowdown_m3 },
   { label: "Drift", unit: "m³", digits: 2, get: (s) => s.summary.drift_m3 },
-  { label: "Cooling energy", unit: "MWh", digits: 1, get: (s) => s.summary.cooling_energy_kwh / 1000, delta: (s) => s.deltas?.energy_pct, rule: true },
+  { label: "Cooling energy", unit: "MWh", digits: 1, get: (s) => s.summary.cooling_energy_kwh / 1000, delta: (s) => s.deltas?.energy_pct, rule: true, key: true },
   { label: "Peak cooling power", unit: "kW", digits: 0, get: (s) => s.summary.peak_power_kw },
   { label: "Water use effectiveness", unit: "L/kWh", digits: 2, get: (s) => s.summary.avg_wue_l_kwh },
   { label: "Partial PUE", digits: 3, get: (s) => s.summary.avg_ppue },
-  { label: "Peak condenser water", unit: "°C", digits: 1, get: (s) => s.summary.max_cws_c, rule: true },
-  { label: "Lowest capacity margin", unit: "kW", digits: 0, get: (s) => s.summary.min_capacity_margin_kw },
+  { label: "Peak condenser water", unit: "°C", digits: 1, get: (s) => s.summary.max_cws_c, rule: true, key: true },
+  { label: "Lowest capacity margin", unit: "kW", digits: 0, get: (s) => s.summary.min_capacity_margin_kw, key: true },
   { label: "Lowest tank level", unit: "%", digits: 0, get: (s) => s.summary.min_tank_level_pct },
   { label: "Water allocation used", unit: "%", digits: 0, get: (s) => (s.summary.allocation_utilisation === null ? null : s.summary.allocation_utilisation * 100) },
 ];
 
-function ScenarioTable({ scenarios, recommended, controls, onApprove }: { scenarios: Scenario[]; recommended: string | null; controls: ControlSpec[]; onApprove: (s: Scenario) => void }) {
+function ScenarioTable({
+  scenarios,
+  recommended,
+  controls,
+  onApprove,
+  full,
+}: {
+  scenarios: Scenario[];
+  recommended: string | null;
+  controls: ControlSpec[];
+  onApprove: (s: Scenario) => void;
+  full: boolean;
+}) {
   const loadDraft = useApp((s) => s.loadDraft);
   const draft = useApp((s) => s.draft)!;
   const base = scenarios[0];
+  const rows = full ? ROWS : ROWS.filter((r) => r.key);
+  // The short view lists only the set points some scenario actually changes.
+  const setpoints = controls.filter(
+    (c) =>
+      (SETPOINT_KEYS as readonly string[]).includes(c.key) &&
+      (full || scenarios.some((s) => Math.abs(Number(s.config[c.key]) - Number(base.config[c.key])) > 1e-9)),
+  );
   const load = (s: Scenario) => {
     const next = { ...draft };
     for (const key of SETPOINT_KEYS) next[key] = s.config[key];
@@ -309,7 +337,7 @@ function ScenarioTable({ scenarios, recommended, controls, onApprove }: { scenar
           </tr>
         </thead>
         <tbody>
-          {ROWS.map((row) => (
+          {rows.map((row) => (
             <tr key={row.label} className={row.rule ? "border-t border-line-2" : "border-t border-line"}>
               <td className="px-3 py-[5px] text-[11.5px] text-ink-2">
                 {row.label}
@@ -337,9 +365,7 @@ function ScenarioTable({ scenarios, recommended, controls, onApprove }: { scenar
               Set points
             </td>
           </tr>
-          {controls
-            .filter((c) => (SETPOINT_KEYS as readonly string[]).includes(c.key))
-            .map((c) => (
+          {setpoints.map((c) => (
               <tr key={c.key} className="border-t border-line">
                 <td className="px-3 py-[5px] text-[11.5px] text-ink-2">
                   {c.label}
@@ -356,6 +382,7 @@ function ScenarioTable({ scenarios, recommended, controls, onApprove }: { scenar
                 })}
               </tr>
             ))}
+          {full && (
           <tr className="border-t border-line">
             <td className="px-3 py-[5px] text-[11.5px] text-ink-2">Objective value</td>
             {scenarios.map((s) => (
@@ -369,6 +396,7 @@ function ScenarioTable({ scenarios, recommended, controls, onApprove }: { scenar
               </td>
             ))}
           </tr>
+          )}
         </tbody>
       </table>
     </div>
@@ -427,6 +455,7 @@ export default function Simulation() {
   const runSimOptimisation = useApp((s) => s.runSimOptimisation);
   const offset = useOffset();
   const [approval, setApproval] = useState<ApprovalRequest | null>(null);
+  const [full, setFull] = useState(false);
 
   // Every parameter change recalculates. The simulation is cheap and follows
   // the sliders; the optimisation only depends on the conditions.
@@ -498,7 +527,16 @@ export default function Simulation() {
             {simStatus === "loading" && !solving && <span className="label pulse">Recalculating</span>}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-ink-3">Window</span>
+            <Choice
+              size="sm"
+              value={full ? "all" : "key"}
+              onChange={(v) => setFull(v === "all")}
+              options={[
+                { value: "key", label: "Key figures", title: "The figures that decide between scenarios" },
+                { value: "all", label: "All figures", title: "Every simulated figure, the solver report and the constraint checks" },
+              ]}
+            />
+            <span className="ml-2 text-[11px] text-ink-3">Window</span>
             <Choice size="sm" value={windowHours} onChange={setWindowHours} options={[24, 48, 72].map((h) => ({ value: h, label: `${h} h` }))} />
           </div>
         </div>
@@ -516,17 +554,19 @@ export default function Simulation() {
 
         {scenarios.length > 0 ? (
           <div className={`transition-opacity ${solving ? "opacity-60" : ""}`}>
-            <ScenarioTable scenarios={scenarios} recommended={simOpt?.recommended ?? null} controls={controls} onApprove={approve} />
+            <ScenarioTable scenarios={scenarios} recommended={simOpt?.recommended ?? null} controls={controls} onApprove={approve} full={full} />
             {simOpt && (
               <div className="border-t border-line px-3 py-2.5 text-[11.5px] leading-snug text-ink-2">
                 <span className="text-ink-3">Optimiser: </span>
                 {simOpt.recommendation_reason}{" "}
+                {full && (
                 <span className="text-ink-3">
                   {simOpt.scenarios
                     .slice(1)
                     .map((s) => `${s.label}: ${s.solver.message} (${s.solver.evaluations} model evaluations, ${num(s.solver.runtime_ms, 0)} ms).`)
                     .join(" ")}
                 </span>
+                )}
               </div>
             )}
             {scenarios.some((s) => s.infeasibility.length > 0) && (
@@ -545,7 +585,7 @@ export default function Simulation() {
             {times.length > 0 && (
               <div className="grid grid-cols-1 gap-x-6 gap-y-5 border-t border-line p-3 2xl:grid-cols-2">
                 <TimeChart title="Makeup water by hour" unit="m³/h" times={times} offset={offset} height={170} series={lines((s) => s.hourly_makeup_m3_h)} zero />
-                <TimeChart title="Cooling power by hour" unit="kW" times={times} offset={offset} height={170} digits={0} series={lines((s) => s.hourly_power_kw)} />
+                {full && <TimeChart title="Cooling power by hour" unit="kW" times={times} offset={offset} height={170} digits={0} series={lines((s) => s.hourly_power_kw)} />}
                 {simOpt && (
                   <TradeoffChart
                     curve={simOpt.tradeoff.map((p) => ({ water: p.makeup_m3, energy: p.energy_kwh, feasible: p.feasible, share: p.wet_fraction }))}
@@ -560,6 +600,7 @@ export default function Simulation() {
                     }))}
                   />
                 )}
+                {full && (
                 <TimeChart
                   title="Stored water"
                   unit="% of tank"
@@ -570,10 +611,11 @@ export default function Simulation() {
                   series={lines((s) => s.hourly_tank_level_pct)}
                   refs={[{ value: overview.facility.limits.tank_reserve_pct, label: "Reserve" }]}
                 />
+                )}
               </div>
             )}
 
-            {draftScenario && (
+            {full && draftScenario && (
               <div className="border-t border-line">
                 <div className="flex h-8 items-center justify-between px-3">
                   <span className="label">Constraints for the {draftScenario.changes.length ? "draft" : "current configuration"}</span>
@@ -604,7 +646,9 @@ export default function Simulation() {
               <div className="grid grid-cols-2 gap-x-3 gap-y-3.5">
                 <Stat label="Makeup water" value={point.water.makeup_m3_h} unit="m³/h" sub={`evaporation ${num(point.water.evaporation_m3_h, 1)}, blowdown ${num(point.water.blowdown_m3_h, 1)}, drift ${num(point.water.drift_m3_h, 2)}`} />
                 <Stat label="Cooling power" value={point.energy.cooling_power_kw} unit="kW" digits={0} sub={`partial PUE ${num(point.energy.ppue, 3)}`} />
-                <Stat label="Heat rejection" value={point.thermal.heat_rejection_kw} unit="kW" digits={0} sub={`towers ${num(point.thermal.heat_rejection_wet_kw, 0)}, dry ${num(point.thermal.heat_rejection_dry_kw, 0)}`} />
+                {full && (
+                  <Stat label="Heat rejection" value={point.thermal.heat_rejection_kw} unit="kW" digits={0} sub={`towers ${num(point.thermal.heat_rejection_wet_kw, 0)}, dry ${num(point.thermal.heat_rejection_dry_kw, 0)}`} />
+                )}
                 <Stat
                   label="Cooling capacity"
                   value={point.capacity.cooling_capacity_kw}
@@ -614,12 +658,16 @@ export default function Simulation() {
                   tone={point.capacity.margin_kw < 0 ? "var(--color-crit)" : undefined}
                 />
                 <Stat label="Condenser water" value={point.thermal.cws_c} unit="°C" sub={`approach ${num(point.thermal.approach_k, 1)} K, range ${num(point.thermal.range_k, 1)} K`} />
-                <Stat label="Latent fraction" value={point.thermal.latent_fraction} digits={2} sub="evaporation heat / heat rejected" />
-                <Stat label="Chiller COP" value={point.thermal.wc_cop} digits={2} sub={point.thermal.ac_cop ? `air-cooled ${num(point.thermal.ac_cop, 2)}` : "dry plant idle"} />
-                <Stat label="Server inlet" value={point.thermal.server_inlet_c} unit="°C" sub={`limit ${num(overview.facility.limits.server_inlet_limit_c, 0)} °C`} />
+                {full && (
+                  <>
+                    <Stat label="Latent fraction" value={point.thermal.latent_fraction} digits={2} sub="evaporation heat / heat rejected" />
+                    <Stat label="Chiller COP" value={point.thermal.wc_cop} digits={2} sub={point.thermal.ac_cop ? `air-cooled ${num(point.thermal.ac_cop, 2)}` : "dry plant idle"} />
+                    <Stat label="Server inlet" value={point.thermal.server_inlet_c} unit="°C" sub={`limit ${num(overview.facility.limits.server_inlet_limit_c, 0)} °C`} />
+                  </>
+                )}
               </div>
             </Section>
-            {point.warnings.length > 0 && (
+            {full && point.warnings.length > 0 && (
               <Section title="Model notes">
                 <ul className="space-y-1.5">
                   {point.warnings.map((w) => (

@@ -7,8 +7,7 @@
 
 import { type ReactNode, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { clock, compact, dayClock, dayLabel, localHour, num } from "@/lib/format";
-import type { StressLevel } from "@/lib/types";
-import { Icon, LEVEL_COLOUR, LEVEL_LABEL } from "./ui";
+import { Icon } from "./ui";
 
 export interface Series {
   key: string;
@@ -26,7 +25,7 @@ export interface RefLine {
   colour?: string;
 }
 
-function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] {
+export function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] {
   const ref = useRef<T>(null);
   const [width, setWidth] = useState(0);
   useLayoutEffect(() => {
@@ -407,105 +406,6 @@ export function TimeChart({
 }
 
 // --- cooling stress timeline ------------------------------------------------------------
-// Nominal hours stay quiet, a step darker than the panel, so only stressed hours stand out.
-const STRESS_FILL: Record<StressLevel, string> = { ...LEVEL_COLOUR, nominal: "var(--color-line-2)" };
-
-export function StressStrip({
-  times,
-  offset,
-  values,
-  levels,
-  drivers,
-  height = 16,
-}: {
-  times: string[];
-  offset: number;
-  values: number[];
-  levels: StressLevel[];
-  drivers: string[];
-  height?: number;
-}) {
-  const [ref, width] = useWidth<HTMLDivElement>();
-  const [hover, setHover] = useState<number | null>(null);
-  const n = times.length;
-  const cell = n ? width / n : 0;
-  let lastLabel = -Infinity;
-  return (
-    <div>
-      <div
-        ref={ref}
-        className="relative outline-none focus-visible:ring-1 focus-visible:ring-accent"
-        tabIndex={0}
-        role="img"
-        aria-label="Cooling stress by hour. Use the left and right arrow keys to read values."
-        onPointerMove={(e) => {
-          const el = ref.current;
-          if (!el || !n) return;
-          setHover(Math.max(0, Math.min(n - 1, Math.floor((e.clientX - el.getBoundingClientRect().left) / cell))));
-        }}
-        onPointerLeave={() => setHover(null)}
-        onBlur={() => setHover(null)}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowRight") setHover((h) => Math.min(n - 1, (h ?? -1) + 1));
-          else if (e.key === "ArrowLeft") setHover((h) => Math.max(0, (h ?? n) - 1));
-          else return;
-          e.preventDefault();
-        }}
-      >
-        <svg width={width} height={height + 16} className="block">
-          {levels.map((level, i) => (
-            <rect key={i} x={i * cell + 1} y={0} width={Math.max(1, cell - 2)} height={height} fill={STRESS_FILL[level]} opacity={hover === null || hover === i ? 1 : 0.55} />
-          ))}
-          {times.map((t, i) => {
-            const h = localHour(t, offset);
-            if (h % 12 !== 0) return null;
-            const px = i * cell;
-            const show = px - lastLabel > 52 && px < width - 30;
-            if (show) lastLabel = px;
-            return (
-              <g key={t}>
-                <line x1={px} x2={px} y1={height} y2={height + 4} stroke="var(--color-line-2)" />
-                {show && (
-                  <text x={px + 3} y={height + 13} className={`num text-[10px] ${h === 0 ? "fill-ink-2" : "fill-ink-3"}`}>
-                    {h === 0 ? dayLabel(t, offset) : "12:00"}
-                  </text>
-                )}
-              </g>
-            );
-          })}
-        </svg>
-        {hover !== null && (
-          <div
-            className="pointer-events-none absolute bottom-full z-20 mb-1.5 whitespace-nowrap border border-line-2 bg-raised px-2 py-1.5 shadow-[0_8px_22px_rgba(28,20,10,0.22)]"
-            style={hover * cell > width * 0.6 ? { right: width - hover * cell - cell } : { left: hover * cell }}
-          >
-            <div className="num text-[10.5px] text-ink-3">{dayClock(times[hover], offset)}</div>
-            <div className="mt-0.5 flex items-center gap-1.5 text-[11.5px]">
-              <span className="h-[7px] w-[7px]" style={{ background: STRESS_FILL[levels[hover]] }} />
-              <span className="text-ink">{LEVEL_LABEL[levels[hover]]}</span>
-              <span className="num text-ink-2">{num(values[hover], 2)}</span>
-            </div>
-            <div className="text-[11px] text-ink-3">{drivers[hover]}</div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-export function StressLegend() {
-  return (
-    <div className="flex items-center gap-3">
-      {(Object.keys(LEVEL_LABEL) as StressLevel[]).map((level) => (
-        <span key={level} className="flex items-center gap-1.5 text-[10.5px] text-ink-2">
-          <span className="h-[7px] w-[7px]" style={{ background: STRESS_FILL[level] }} />
-          {LEVEL_LABEL[level]}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 // --- water against energy -------------------------------------------------------------------
 export interface TradePoint {
   key: string;
@@ -653,19 +553,6 @@ export function TradeoffChart({
   );
 }
 
-/** Small inline trend for a stat. */
-export function Spark({ values, colour = "var(--color-neutral)", width = 72, height = 18 }: { values: number[]; colour?: string; width?: number; height?: number }) {
-  if (values.length < 2) return null;
-  const lo = Math.min(...values);
-  const hi = Math.max(...values);
-  const span = hi - lo || 1;
-  const d = values.map((v, i) => `${i ? "L" : "M"}${((i / (values.length - 1)) * width).toFixed(1)},${(height - 2 - ((v - lo) / span) * (height - 4)).toFixed(1)}`).join("");
-  return (
-    <svg width={width} height={height} aria-hidden>
-      <path d={d} fill="none" stroke={colour} strokeWidth="1.5" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 export function useNow(intervalMs = 30_000): number {
   const [now, setNow] = useState(() => Date.now());

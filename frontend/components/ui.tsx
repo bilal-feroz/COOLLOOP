@@ -149,45 +149,6 @@ export function Stat({
   );
 }
 
-/** One whole split into parts: thin bar with a legend that carries the values. */
-export function Segments({
-  parts,
-  unit,
-  digits = 1,
-}: {
-  parts: { label: string; value: number; colour: string }[];
-  unit: string;
-  digits?: number;
-}) {
-  const total = parts.reduce((a, p) => a + Math.max(p.value, 0), 0);
-  const summary = parts.map((p) => `${p.label} ${num(p.value, digits)} ${unit}`).join(", ");
-  return (
-    <div>
-      <div className="flex h-2 gap-[2px]" role="img" aria-label={summary}>
-        {total > 0 ? (
-          parts.map((p) =>
-            p.value > 0 ? (
-              <div key={p.label} title={`${p.label}: ${num(p.value, digits)} ${unit}`} style={{ flexGrow: p.value, background: p.colour, minWidth: 2 }} />
-            ) : null,
-          )
-        ) : (
-          <div className="grow bg-line" />
-        )}
-      </div>
-      <div className="mt-2 grid gap-y-1" style={{ gridTemplateColumns: "auto 1fr auto auto" }}>
-        {parts.map((p) => (
-          <div key={p.label} className="contents text-[11.5px]">
-            <span className="mr-2 mt-[5px] h-[7px] w-[7px]" style={{ background: p.colour }} />
-            <span className="text-ink-2">{p.label}</span>
-            <span className="num pr-2 text-right text-ink">{num(p.value, digits)}</span>
-            <span className="num w-9 text-right text-ink-3">{total > 0 ? `${num((p.value / total) * 100, 0)}%` : "–"}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /** Utilisation against a limit. The fill carries severity. */
 export function Meter({ value, warnAt = 0.9, max = 1, label }: { value: number | null; warnAt?: number; max?: number; label: string }) {
   const v = value ?? 0;
