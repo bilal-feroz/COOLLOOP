@@ -111,7 +111,10 @@ def credentials_present() -> bool:
     key, an auth token, or a profile written by `ant auth login`."""
     if os.getenv("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_AUTH_TOKEN") or os.getenv("ANTHROPIC_PROFILE"):
         return True
-    return (Path.home() / ".config" / "anthropic").is_dir()
+    try:
+        return (Path.home() / ".config" / "anthropic").is_dir()
+    except RuntimeError:  # no home directory, as in some serverless sandboxes
+        return False
 
 
 def status(model: str) -> LlmStatus:

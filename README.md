@@ -19,8 +19,8 @@ Requirements: Python 3.11 or newer, Node.js 20 or newer.
 # 1. Backend
 cd backend
 python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt        # Windows
-# .venv/bin/pip install -r requirements.txt          # macOS / Linux
+.venv\Scripts\pip install -r requirements-dev.txt    # Windows
+# .venv/bin/pip install -r requirements-dev.txt      # macOS / Linux
 
 # 2. Frontend
 cd ../frontend
@@ -133,6 +133,18 @@ Water-saving uses weights 0.85 / 0.15, balanced uses 0.5 / 0.5. Both are paramet
 The briefing in the Intelligence screen is written by fixed rules over verified data. It needs no language model and is always available.
 
 Questions to the analysts are optional and use Claude (`ANTHROPIC_API_KEY` in `.env`). Each analyst is a system prompt plus read-only tools that return the same weather, simulation and optimisation structures the rest of the application uses. The model never calculates engineering values, there is no tool that changes the facility, and every answer lists the data it read. Without a key, or if the API fails, everything else keeps working.
+
+## Deployment
+
+Live at **https://coolloop-sage.vercel.app**.
+
+One Vercel project runs both halves as [Vercel Services](https://vercel.com/docs/services) (`vercel.json`): requests under `/api/` go to the FastAPI backend, everything else to the Next.js frontend, on one domain. The Meteomatics login is stored as encrypted project environment variables; `.vercelignore` keeps the local `.env` out of every upload.
+
+```bash
+npx vercel deploy --prod
+```
+
+On Vercel the backend keeps its state and weather cache in the function's temporary directory. Each instance starts from the reference baseline, so an applied configuration or a replay setting lasts as long as the instance does.
 
 ## Tests
 

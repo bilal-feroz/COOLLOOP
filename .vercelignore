@@ -1,0 +1,22 @@
+# Never upload secrets: credentials are set as Vercel environment variables.
+.env
+.env.*
+!.env.example
+
+# Local tooling and build output
+.claude
+.vercel
+.git
+**/.venv
+**/node_modules
+**/.next
+**/__pycache__
+**/.pytest_cache
+**/*.tsbuildinfo
+
+# Not needed at runtime
+backend/data
+backend/tests
+backend/pytest.ini
+backend/requirements-dev.txt
+dev.mjs

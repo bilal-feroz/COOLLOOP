@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -13,6 +14,14 @@ from .facility import Location
 
 ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = ROOT / ".env"
+
+
+def default_data_dir() -> Path:
+    """Where state and the weather cache are kept. On Vercel the deployment is
+    read-only and only the temporary directory can be written."""
+    if os.environ.get("VERCEL"):
+        return Path(tempfile.gettempdir()) / "coolloop"
+    return ROOT / "backend" / "data"
 
 
 @dataclass(frozen=True)
@@ -30,7 +39,7 @@ class Settings:
     retry_after_error_s: int = 120
     anthropic_api_key: str = ""
     llm_model: str = "claude-opus-5-5"
-    data_dir: Path = ROOT / "backend" / "data"
+    data_dir: Path = field(default_factory=default_data_dir)
 
     @property
     def meteomatics_configured(self) -> bool:
@@ -84,7 +93,7 @@ def load_settings() -> Settings:
         ),
         anthropic_api_key=text("ANTHROPIC_API_KEY"),
         llm_model=text("COOLLOOP_LLM_MODEL", "claude-opus-5-5"),
-        data_dir=Path(text("COOLLOOP_DATA_DIR") or ROOT / "backend" / "data"),
+        data_dir=Path(text("COOLLOOP_DATA_DIR") or default_data_dir()),
     )
 
 

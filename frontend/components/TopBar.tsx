@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ago, dateClock, dateOnly, fromLocalInput, fullClock, num, toLocalInput, utcOffsetLabel } from "@/lib/format";
 import { useApp, type View } from "@/lib/store";
 import type { WeatherBundle } from "@/lib/types";
@@ -43,6 +43,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 const HOUR = 3_600_000;
+const subscribeNothing = () => () => {};
 
 /** Pick a past moment to replay: one of the year's hardest hours, or any date. */
 function ReplayChooser({ weather }: { weather: WeatherBundle }) {
@@ -315,6 +316,9 @@ export function TopBar() {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const now = useNow(20_000);
+  // False while the prerendered page hydrates, true afterwards. The clock is
+  // left out of the prerendered HTML, which would otherwise carry the build time.
+  const hydrated = useSyncExternalStore(subscribeNothing, () => true, () => false);
   const weather = overview?.weather;
   const status = sourceStatus(weather);
   const offset = weather?.location.utc_offset_hours ?? 4;
@@ -397,7 +401,7 @@ export function TopBar() {
         <div className="flex items-center whitespace-nowrap border-l border-line px-3.5 leading-tight">
           <span>
             <span className="num block text-[12px] text-ink" style={replayAt ? { color: "var(--color-warn)" } : undefined}>
-              {replayAt ? dateClock(replayAt, offset, true) : dateClock(new Date(now), offset)}
+              {replayAt ? dateClock(replayAt, offset, true) : hydrated ? dateClock(new Date(now), offset) : "–"}
             </span>
             <span className="block text-[10.5px] text-ink-3">
               {replayAt ? "Replayed site time" : "Site time"}, {utcOffsetLabel(offset)}
