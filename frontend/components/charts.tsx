@@ -383,7 +383,7 @@ export function TimeChart({
         )}
         {hover !== null && (
           <div
-            className="pointer-events-none absolute top-1 z-20 min-w-[120px] border border-line-2 bg-raised px-2 py-1.5 shadow-[0_6px_18px_rgba(0,0,0,0.5)]"
+            className="pointer-events-none absolute top-1 z-20 min-w-[120px] border border-line-2 bg-raised px-2 py-1.5 shadow-[0_8px_22px_rgba(28,20,10,0.22)]"
             style={flip ? { right: width - tooltipLeft + 10 } : { left: tooltipLeft + 10 }}
           >
             <div className="num mb-1 text-[10.5px] text-ink-3">{dayClock(times[hover], offset)}</div>
@@ -407,7 +407,8 @@ export function TimeChart({
 }
 
 // --- cooling stress timeline ------------------------------------------------------------
-const STRESS_FILL: Record<StressLevel, string> = { ...LEVEL_COLOUR, nominal: "#23343c" };
+// Nominal hours stay quiet, a step darker than the panel, so only stressed hours stand out.
+const STRESS_FILL: Record<StressLevel, string> = { ...LEVEL_COLOUR, nominal: "var(--color-line-2)" };
 
 export function StressStrip({
   times,
@@ -475,7 +476,7 @@ export function StressStrip({
         </svg>
         {hover !== null && (
           <div
-            className="pointer-events-none absolute bottom-full z-20 mb-1.5 whitespace-nowrap border border-line-2 bg-raised px-2 py-1.5 shadow-[0_6px_18px_rgba(0,0,0,0.5)]"
+            className="pointer-events-none absolute bottom-full z-20 mb-1.5 whitespace-nowrap border border-line-2 bg-raised px-2 py-1.5 shadow-[0_8px_22px_rgba(28,20,10,0.22)]"
             style={hover * cell > width * 0.6 ? { right: width - hover * cell - cell } : { left: hover * cell }}
           >
             <div className="num text-[10.5px] text-ink-3">{dayClock(times[hover], offset)}</div>
@@ -637,7 +638,7 @@ export function TradeoffChart({
           </svg>
         )}
         {active && (
-          <div className="pointer-events-none absolute right-2 top-1 z-20 border border-line-2 bg-raised px-2 py-1.5 text-[11.5px] shadow-[0_6px_18px_rgba(0,0,0,0.5)]">
+          <div className="pointer-events-none absolute right-2 top-1 z-20 border border-line-2 bg-raised px-2 py-1.5 text-[11.5px] shadow-[0_8px_22px_rgba(28,20,10,0.22)]">
             <div className="mb-0.5 flex items-center gap-1.5 text-ink">
               <span className="h-[7px] w-[7px]" style={{ background: active.colour }} />
               {active.label}

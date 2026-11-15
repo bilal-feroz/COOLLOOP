@@ -33,7 +33,7 @@ export function TwinSlot({ className, children }: { className?: string; children
     };
   }, []);
   return (
-    <div ref={ref} className={className}>
+    <div ref={ref} className={`stage ${className ?? ""}`}>
       {children}
     </div>
   );
@@ -73,10 +73,10 @@ export function TwinHost() {
   }, [el]);
 
   return (
-    <div ref={host} className="fixed z-[1] overflow-hidden bg-bg" style={{ visibility: "hidden", left: 0, top: 0, width: 1, height: 1 }}>
+    <div ref={host} className="stage fixed z-[1] overflow-hidden bg-bg" style={{ visibility: "hidden", left: 0, top: 0, width: 1, height: 1 }}>
       <TwinCanvas active={el !== null} />
       {/* Soft falloff toward the edges so the model sits in the frame. */}
-      <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 85% 80% at 50% 46%, transparent 58%, rgba(5,7,9,0.62) 100%)" }} />
+      <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 85% 80% at 50% 46%, transparent 58%, rgba(8,7,5,0.6) 100%)" }} />
       <LabelLayer />
     </div>
   );

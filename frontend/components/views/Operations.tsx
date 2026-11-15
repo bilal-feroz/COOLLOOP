@@ -354,7 +354,7 @@ function StatusOverlay({ overview }: { overview: Overview }) {
   const meta = overview.config_meta;
   return (
     <div className="pointer-events-none absolute left-3 top-3 z-[2]">
-      <div className="border border-line-2 bg-[#0a0d10d9] px-3 py-2.5 backdrop-blur-[2px]">
+      <div className="border border-line-2 bg-panel/85 px-3 py-2.5 backdrop-blur-[2px]">
         <div className="label mb-2">Cooling stress now</div>
         <div className="flex items-center gap-2.5">
           <Dot colour={LEVEL_COLOUR[stress.level]} size={9} pulse={stress.level === "critical"} />
@@ -401,12 +401,12 @@ export default function Operations() {
           <StatusOverlay overview={overview} />
           <div className="absolute right-3 top-3 z-[2] flex flex-col items-end gap-2">
             <CameraPresets />
-            <div className="border border-line-2 bg-[#0a0d10d9] px-2.5 py-1.5">
+            <div className="border border-line-2 bg-panel/85 px-2.5 py-1.5">
               <LayerControls />
             </div>
           </div>
           {item && (
-            <div className="rise absolute bottom-3 left-3 z-[2] w-[264px] border border-line-2 bg-[#0c0f12f2] p-3">
+            <div className="rise absolute bottom-3 left-3 z-[2] w-[264px] border border-line-2 bg-panel/95 p-3">
               <Inspector item={item} onClose={() => select(null)} />
               <button onClick={() => setView("twin")} className="mt-2 flex items-center gap-1 text-[11px] text-accent hover:underline">
                 Open in digital twin <Icon name="chevron" size={10} />

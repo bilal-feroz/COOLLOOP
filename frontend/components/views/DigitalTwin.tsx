@@ -139,11 +139,11 @@ export default function DigitalTwin() {
         </div>
         <div className="absolute right-3 top-3 z-[2] flex flex-col items-end gap-2">
           <CameraPresets />
-          <div className="border border-line-2 bg-[#0a0d10d9] px-2.5 py-1.5">
+          <div className="border border-line-2 bg-panel/85 px-2.5 py-1.5">
             <LayerControls />
           </div>
         </div>
-        <div className="absolute bottom-3 left-3 z-[2] border border-line-2 bg-[#0a0d10d9] px-2.5 py-2">
+        <div className="absolute bottom-3 left-3 z-[2] border border-line-2 bg-panel/85 px-2.5 py-2">
           <div className="label mb-1.5">Circuits</div>
           <CircuitLegend />
         </div>

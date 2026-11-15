@@ -72,8 +72,8 @@ export function ApprovalDialog({ request, onClose }: { request: ApprovalRequest;
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/65" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal aria-label={request.title} className="rise w-[460px] border border-line-2 bg-panel shadow-[0_24px_70px_rgba(0,0,0,0.75)]">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#17140f]/55" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div role="dialog" aria-modal aria-label={request.title} className="rise w-[460px] border border-line-2 bg-panel shadow-[0_24px_60px_rgba(28,20,10,0.35)]">
         <div className="flex h-10 items-center justify-between border-b border-line px-4">
           <span className="flex items-center gap-2 text-[12.5px] text-ink">
             <Icon name="lock" size={13} className="text-accent" />

@@ -109,8 +109,8 @@ export function Interaction({ equipment }: { equipment: Record<string, Equipment
         return state && ABNORMAL.has(state) ? <StateRing key={node.id} node={node} colour={STATE_COLOURS[state]} /> : null;
       })}
 
-      {selectedNode?.center && <Brackets node={selectedNode} colour="#3cc7e6" strong />}
-      {hoveredNode?.center && <Brackets node={hoveredNode} colour="#a3acb4" strong={false} />}
+      {selectedNode?.center && <Brackets node={selectedNode} colour="#f0e2c4" strong />}
+      {hoveredNode?.center && <Brackets node={hoveredNode} colour="#9d9383" strong={false} />}
     </group>
   );
 }

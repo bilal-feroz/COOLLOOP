@@ -97,8 +97,8 @@ export function Scene() {
         sectionSize={25}
         cellThickness={0.6}
         sectionThickness={1}
-        cellColor="#141a1f"
-        sectionColor="#1f2930"
+        cellColor="#1b1915"
+        sectionColor="#2a2621"
         fadeDistance={520}
         fadeStrength={1.4}
         followCamera={false}

@@ -17,7 +17,7 @@ const TABS: { view: View; label: string; icon: IconName }[] = [
 export function sourceStatus(weather: WeatherBundle | undefined): { label: string; colour: string; pulse: boolean } {
   switch (weather?.status) {
     case "live":
-      return { label: "Live", colour: "var(--color-accent)", pulse: false };
+      return { label: "Live", colour: "var(--color-teal)", pulse: false };
     case "cached":
       return { label: "Cached", colour: "var(--color-warn)", pulse: true };
     case "replay":
@@ -175,9 +175,9 @@ function SourcePanel({ onClose }: { onClose: () => void }) {
   const daysLeft = quota?.valid_until ? (Date.parse(quota.valid_until) - now) / (24 * HOUR) : null;
 
   return (
-    <div className="rise absolute right-0 top-[calc(100%+1px)] z-50 max-h-[calc(100dvh-60px)] w-[400px] overflow-y-auto border border-line-2 bg-panel shadow-[0_18px_50px_rgba(0,0,0,0.65)]">
+    <div className="rise absolute right-0 top-[calc(100%+1px)] z-50 max-h-[calc(100dvh-60px)] w-[400px] overflow-y-auto border border-line-2 bg-panel shadow-[0_18px_44px_rgba(28,20,10,0.38)]">
       <div className="flex h-9 items-center justify-between border-b border-line px-3">
-        <span className="label">Weather data source</span>
+        <span className="title">Weather data source</span>
         <button onClick={onClose} className="text-ink-3 hover:text-ink" aria-label="Close">
           <Icon name="close" size={13} />
         </button>
@@ -340,7 +340,7 @@ export function TopBar() {
   }, [open]);
 
   return (
-    <header className="relative z-40 flex h-11 shrink-0 items-stretch border-b border-line bg-panel">
+    <header className="stage relative z-40 flex h-11 shrink-0 items-stretch border-b border-line bg-panel">
       <div className="flex w-[196px] shrink-0 items-center gap-2.5 border-r border-line px-3.5">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
           <path d="M10 2.2a7.8 7.8 0 107.8 7.8" stroke="var(--color-accent)" strokeWidth="1.8" strokeLinecap="round" />
@@ -358,7 +358,7 @@ export function TopBar() {
               key={tab.view}
               onClick={() => setView(tab.view)}
               aria-current={on ? "page" : undefined}
-              className={`relative flex items-center gap-2 border-r border-line px-4 text-[12px] uppercase tracking-[0.1em] transition-colors ${
+              className={`relative flex items-center gap-2 border-r border-line px-4 text-[13px] font-medium transition-colors ${
                 on ? "bg-raised text-ink" : "text-ink-3 hover:bg-raised/60 hover:text-ink-2"
               }`}
             >

@@ -172,10 +172,10 @@ export default function TwinCanvas({ active }: { active: boolean }) {
         if (process.env.NODE_ENV !== "production") (window as unknown as { __gl?: THREE.WebGLRenderer }).__gl = gl;
       }}
     >
-      <color attach="background" args={["#07090b"]} />
-      <fog attach="fog" args={["#07090b", 330, 820]} />
+      <color attach="background" args={["#0c0b0a"]} />
+      <fog attach="fog" args={["#0c0b0a", 330, 820]} />
 
-      <hemisphereLight args={["#9db6c9", "#090b0d", 0.3]} />
+      <hemisphereLight args={["#d9ccb4", "#0b0a08", 0.32]} />
       <directionalLight
         position={[96, 118, 62]}
         intensity={3.1}
@@ -191,14 +191,14 @@ export default function TwinCanvas({ active }: { active: boolean }) {
         shadow-bias={-0.0004}
         shadow-normalBias={0.45}
       />
-      <directionalLight position={[-90, 46, -80]} intensity={0.5} color="#74b0d8" />
+      <directionalLight position={[-90, 46, -80]} intensity={0.45} color="#9fb0b8" />
 
       {/* Studio-style reflections built in the scene, nothing is downloaded. */}
       <Environment resolution={256} frames={1} environmentIntensity={0.5}>
-        <color attach="background" args={["#0a0d10"]} />
-        <Lightformer form="rect" intensity={2.4} color="#dfeaf2" position={[0, 60, 0]} rotation-x={Math.PI / 2} scale={[160, 160, 1]} />
+        <color attach="background" args={["#0d0c0a"]} />
+        <Lightformer form="rect" intensity={2.4} color="#efe5d3" position={[0, 60, 0]} rotation-x={Math.PI / 2} scale={[160, 160, 1]} />
         <Lightformer form="rect" intensity={1.6} color="#ffe7c4" position={[90, 20, 60]} rotation-y={-Math.PI / 3} scale={[80, 30, 1]} />
-        <Lightformer form="rect" intensity={0.9} color="#6fb3d9" position={[-90, 14, -50]} rotation-y={Math.PI / 2.4} scale={[90, 26, 1]} />
+        <Lightformer form="rect" intensity={0.9} color="#a3b3ba" position={[-90, 14, -50]} rotation-y={Math.PI / 2.4} scale={[90, 26, 1]} />
       </Environment>
 
       <StaticShadows version={cutaway ? "cutaway" : "exterior"} />

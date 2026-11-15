@@ -148,7 +148,7 @@ export function Plumes({ drivers, visible }: { drivers: Drivers; visible: boolea
   const { size, camera, viewport } = useThree();
 
   const { geometry, material, particles } = useMemo(() => {
-    const vapour = new THREE.Color("#cfe4ec");
+    const vapour = new THREE.Color("#e8e2d6");
     const warm = new THREE.Color("#f0b48c");
     const emitters: Emitter[] = [
       ...TOWER_X.map((x, i) => ({
@@ -332,7 +332,7 @@ interface Arrow {
 }
 
 function buildArrows(): Arrow[] {
-  const cool = new THREE.Color("#9cc4dc");
+  const cool = new THREE.Color("#a9bdc6");
   const warm = new THREE.Color("#f2b98a");
   const up = new THREE.Vector3(0, 1, 0);
   const rand = seeded(19);

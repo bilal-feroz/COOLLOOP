@@ -28,7 +28,7 @@ function Toast() {
   return (
     <div
       role="status"
-      className="rise fixed bottom-4 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-2.5 border bg-raised px-3 py-2 text-[12px] text-ink shadow-[0_12px_30px_rgba(0,0,0,0.6)]"
+      className="stage rise fixed bottom-4 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-2.5 border bg-panel px-3 py-2 text-[12px] text-ink shadow-[0_12px_30px_rgba(28,20,10,0.3)]"
       style={{ borderColor: colour }}
     >
       <Icon name={toast.kind === "ok" ? "check" : "alert"} size={13} className="shrink-0" />

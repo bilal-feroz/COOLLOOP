@@ -387,7 +387,7 @@ export default function Intelligence() {
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-3">
               <span className="flex items-center gap-1.5">
                 Weather: <span className="text-ink-2">{basis.weather_source}</span>
-                <Tag colour={basis.weather_status === "live" ? "var(--color-accent)" : "var(--color-warn)"}>{basis.weather_synthetic ? "synthetic" : basis.weather_status}</Tag>
+                <Tag colour={basis.weather_status === "live" ? "var(--color-teal)" : "var(--color-warn)"}>{basis.weather_synthetic ? "synthetic" : basis.weather_status}</Tag>
               </span>
               <span>
                 {basis.weather_status === "replay" ? "Replayed period" : "Forecast"}:{" "}

@@ -54,7 +54,7 @@ export const LEVEL_LABEL: Record<StressLevel, string> = {
 export const STATE_COLOUR: Record<EquipmentStatus, string> = {
   running: "var(--color-accent)",
   standby: "var(--color-ink-3)",
-  off: "#3a4249",
+  off: "var(--color-line-2)",
   warning: "var(--color-warn)",
   fault: "var(--color-crit)",
 };
@@ -80,7 +80,7 @@ export function Dot({ colour, pulse = false, size = 7 }: { colour: string; pulse
 export function Tag({ children, colour = "var(--color-ink-3)", solid = false }: { children: ReactNode; colour?: string; solid?: boolean }) {
   return (
     <span
-      className="inline-flex h-[18px] items-center gap-1 whitespace-nowrap border px-1.5 text-[10px] font-medium uppercase leading-none tracking-[0.07em]"
+      className="num inline-flex h-[18px] items-center gap-1 whitespace-nowrap border px-1.5 text-[10px] font-medium uppercase leading-none tracking-[0.04em]"
       style={{
         borderColor: `color-mix(in srgb, ${colour} 55%, transparent)`,
         color: solid ? "var(--color-bg)" : colour,
@@ -108,8 +108,8 @@ export function Section({
 }) {
   return (
     <section className={`border-b border-line ${className}`}>
-      <header className="flex h-8 items-center justify-between gap-2 px-3">
-        <h2 className="label">{title}</h2>
+      <header className="flex h-9 items-center justify-between gap-2 px-3">
+        <h2 className="title">{title}</h2>
         {right}
       </header>
       <div className={pad ? "px-3 pb-3" : ""}>{children}</div>
@@ -134,12 +134,12 @@ export function Stat({
   size?: "sm" | "md" | "lg";
   tone?: string;
 }) {
-  const scale = size === "lg" ? "text-[26px]" : size === "md" ? "text-[17px]" : "text-[13px]";
+  const scale = size === "lg" ? "text-[28px]" : size === "md" ? "text-[19px]" : "text-[13.5px]";
   return (
     <div className="min-w-0">
       <div className="label mb-1.5 truncate">{label}</div>
       <div className="flex items-baseline gap-1">
-        <span className={`num font-medium leading-none ${scale}`} style={tone ? { color: tone } : undefined}>
+        <span className={`figure font-medium leading-none ${scale}`} style={tone ? { color: tone } : undefined}>
           {num(value, digits)}
         </span>
         {unit && <span className="text-[11px] leading-none text-ink-3">{unit}</span>}

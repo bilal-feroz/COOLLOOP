@@ -74,15 +74,15 @@ function plateTexture(repeat: [number, number]) {
     256,
     128,
     (ctx, w, h) => {
-      ctx.fillStyle = "#aab2b8";
+      ctx.fillStyle = "#b3ab9d";
       ctx.fillRect(0, 0, w, h);
       speckle(ctx, w, h, 10, 23);
-      ctx.fillStyle = "rgba(40,48,54,0.55)";
+      ctx.fillStyle = "rgba(48,42,34,0.55)";
       ctx.fillRect(0, 0, w, 2);
       ctx.fillRect(0, 0, 2, h);
       ctx.fillStyle = "rgba(255,255,255,0.18)";
       ctx.fillRect(0, 3, w, 1);
-      ctx.fillStyle = "rgba(30,36,40,0.5)";
+      ctx.fillStyle = "rgba(36,31,25,0.5)";
       for (let x = 14; x < w; x += 22) ctx.fillRect(x, 6, 3, 3);
     },
     repeat,
@@ -95,13 +95,13 @@ function finTexture(repeat: [number, number]) {
     64,
     64,
     (ctx, w, h) => {
-      ctx.fillStyle = "#3b4349";
+      ctx.fillStyle = "#423d36";
       ctx.fillRect(0, 0, w, h);
       for (let x = 0; x < w; x += 4) {
-        ctx.fillStyle = x % 8 === 0 ? "#8b959c" : "#59636a";
+        ctx.fillStyle = x % 8 === 0 ? "#958c7d" : "#625b51";
         ctx.fillRect(x, 0, 2, h);
       }
-      ctx.fillStyle = "rgba(15,18,20,0.6)";
+      ctx.fillStyle = "rgba(18,16,13,0.6)";
       ctx.fillRect(0, 0, w, 2);
     },
     repeat,
@@ -114,10 +114,10 @@ function tileTexture(repeat: [number, number]) {
     128,
     128,
     (ctx, w, h) => {
-      ctx.fillStyle = "#7d858b";
+      ctx.fillStyle = "#8a8378";
       ctx.fillRect(0, 0, w, h);
       speckle(ctx, w, h, 9, 5);
-      ctx.strokeStyle = "rgba(30,36,40,0.7)";
+      ctx.strokeStyle = "rgba(36,31,25,0.7)";
       ctx.lineWidth = 2;
       ctx.strokeRect(0, 0, w, h);
     },
@@ -131,10 +131,10 @@ function slabTexture(repeat: [number, number]) {
     256,
     256,
     (ctx, w, h) => {
-      ctx.fillStyle = "#3c4246";
+      ctx.fillStyle = "#3d3a35";
       ctx.fillRect(0, 0, w, h);
       speckle(ctx, w, h, 12, 41);
-      ctx.strokeStyle = "rgba(20,24,27,0.55)";
+      ctx.strokeStyle = "rgba(24,21,17,0.55)";
       ctx.lineWidth = 2;
       ctx.strokeRect(0, 0, w, h);
     },
@@ -148,16 +148,16 @@ function rackTextures(): [THREE.CanvasTexture, THREE.CanvasTexture] {
   const leds: [number, number, string][] = [];
   for (let y = 10; y < 248; y += 9) {
     if (rand() < 0.2) continue;
-    const colour = rand() < 0.08 ? "#f2ab2e" : rand() < 0.55 ? "#3cc7e6" : "#48d597";
+    const colour = rand() < 0.08 ? "#e2a440" : rand() < 0.55 ? "#f1e3c6" : "#7fc79a";
     leds.push([14 + Math.floor(rand() * 3) * 5, y, colour]);
-    if (rand() < 0.45) leds.push([96 + Math.floor(rand() * 3) * 5, y, "#3cc7e6"]);
+    if (rand() < 0.45) leds.push([96 + Math.floor(rand() * 3) * 5, y, "#f1e3c6"]);
   }
   const map = canvasTexture(128, 256, (ctx, w, h) => {
-    ctx.fillStyle = "#15191c";
+    ctx.fillStyle = "#171512";
     ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = "#0b0d0f";
+    ctx.fillStyle = "#0d0c0a";
     for (let y = 6; y < h - 4; y += 9) ctx.fillRect(8, y, w - 16, 6);
-    ctx.fillStyle = "#262c31";
+    ctx.fillStyle = "#2a2621";
     ctx.fillRect(0, 0, 4, h);
     ctx.fillRect(w - 4, 0, 4, h);
     ctx.fillRect(0, 0, w, 4);
@@ -217,7 +217,7 @@ const std = (color: string, roughness: number, metalness = 0, extra: THREE.MeshS
   new THREE.MeshStandardMaterial({ color, roughness, metalness, ...extra });
 
 const glow = (color: string, intensity = 1.6) =>
-  new THREE.MeshStandardMaterial({ color: "#0c0e10", emissive: color, emissiveIntensity: intensity, roughness: 0.4 });
+  new THREE.MeshStandardMaterial({ color: "#0e0d0b", emissive: color, emissiveIntensity: intensity, roughness: 0.4 });
 
 export interface Circuit {
   /** Equipment id a click on this circuit selects. */
@@ -243,7 +243,7 @@ function circuit(id: string, base: string, glowColour: string, insulated = false
 
 function build() {
   const [rackMap, rackGlow] = rackTextures();
-  const rackSide = std("#16191c", 0.6, 0.5);
+  const rackSide = std("#181613", 0.6, 0.5);
   const rackFront = new THREE.MeshStandardMaterial({
     map: rackMap,
     emissiveMap: rackGlow,
@@ -255,40 +255,40 @@ function build() {
 
   return {
     // --- civil ---------------------------------------------------------------
-    ground: std("#0b0e10", 0.96),
+    ground: std("#0d0c0a", 0.96),
     slab: new THREE.MeshStandardMaterial({ map: slabTexture([17, 14]), roughness: 0.93 }),
-    asphalt: std("#17191b", 0.95),
-    marking: std("#77755f", 0.85),
-    concrete: std("#5d6368", 0.92),
-    concreteDark: std("#3d4347", 0.95),
+    asphalt: std("#191714", 0.95),
+    marking: std("#8a7f63", 0.85),
+    concrete: std("#67625a", 0.92),
+    concreteDark: std("#44403a", 0.95),
     // --- buildings -------------------------------------------------------------
-    cladLong: new THREE.MeshStandardMaterial({ map: claddingTexture("#c3c9cd", "#7c858b", [53, 1]), roughness: 0.62, metalness: 0.15 }),
-    cladShort: new THREE.MeshStandardMaterial({ map: claddingTexture("#c3c9cd", "#7c858b", [33, 1]), roughness: 0.62, metalness: 0.15 }),
-    cladPlant: new THREE.MeshStandardMaterial({ map: claddingTexture("#8f989e", "#5a6268", [26, 1]), roughness: 0.6, metalness: 0.2 }),
-    cladDark: std("#2b3237", 0.6, 0.3),
-    roof: std("#3a4146", 0.85, 0.1),
-    cut: std("#1a1f23", 0.9),
+    cladLong: new THREE.MeshStandardMaterial({ map: claddingTexture("#d8cfbf", "#8e8576", [53, 1]), roughness: 0.62, metalness: 0.15 }),
+    cladShort: new THREE.MeshStandardMaterial({ map: claddingTexture("#d8cfbf", "#8e8576", [33, 1]), roughness: 0.62, metalness: 0.15 }),
+    cladPlant: new THREE.MeshStandardMaterial({ map: claddingTexture("#a39a8b", "#6b6357", [26, 1]), roughness: 0.6, metalness: 0.2 }),
+    cladDark: std("#2f2b26", 0.6, 0.3),
+    roof: std("#3b3732", 0.85, 0.1),
+    cut: std("#1c1a17", 0.9),
     tile: new THREE.MeshStandardMaterial({ map: tileTexture([100, 38]), roughness: 0.5, metalness: 0.1 }),
-    epoxy: std("#434a4f", 0.4, 0.05),
+    epoxy: std("#4a453e", 0.4, 0.05),
     walkway: std("#b28a22", 0.7),
     glazing: std("#101820", 0.12, 0.8, { emissive: "#f1c98a", emissiveIntensity: 0.22 }),
     // --- structure and metalwork ---------------------------------------------------
-    steel: std("#98a2a9", 0.42, 0.75),
-    steelDark: std("#3f474d", 0.5, 0.7),
-    band: std("#4a535a", 0.5, 0.7, { side: THREE.DoubleSide }),
-    grating: std("#2a3035", 0.7, 0.6),
-    frp: std("#b9bfc2", 0.58, 0.05),
-    frpBand: std("#878f95", 0.55, 0.1),
-    stack: std("#a3abb0", 0.5, 0.08, { side: THREE.DoubleSide }),
-    louvre: std("#31383d", 0.6, 0.5),
-    fan: std("#cfd5d9", 0.38, 0.55),
+    steel: std("#a39d93", 0.42, 0.75),
+    steelDark: std("#46413a", 0.5, 0.7),
+    band: std("#4f4a42", 0.5, 0.7, { side: THREE.DoubleSide }),
+    grating: std("#2d2924", 0.7, 0.6),
+    frp: std("#c9c1b2", 0.58, 0.05),
+    frpBand: std("#8f877a", 0.55, 0.1),
+    stack: std("#b0a899", 0.5, 0.08, { side: THREE.DoubleSide }),
+    louvre: std("#34302a", 0.6, 0.5),
+    fan: std("#d8d2c6", 0.38, 0.55),
     // --- machines ----------------------------------------------------------------------
-    chiller: std("#27455c", 0.38, 0.45),
-    shell: std("#b4bcc2", 0.36, 0.6),
-    insulation: std("#1d2226", 0.82, 0.02),
-    motor: std("#4d6072", 0.45, 0.5),
-    pumpBody: std("#2f6f7c", 0.42, 0.45),
-    cabinet: std("#d3d8db", 0.5, 0.2),
+    chiller: std("#34444c", 0.38, 0.45),
+    shell: std("#bdb5a6", 0.36, 0.6),
+    insulation: std("#211e1a", 0.82, 0.02),
+    motor: std("#57524a", 0.45, 0.5),
+    pumpBody: std("#40656a", 0.42, 0.45),
+    cabinet: std("#ddd5c6", 0.5, 0.2),
     guard: std("#c98a1c", 0.55, 0.3),
     coil: new THREE.MeshStandardMaterial({ map: finTexture([70, 1]), roughness: 0.5, metalness: 0.65 }),
     tankShell: new THREE.MeshStandardMaterial({ map: plateTexture([28, 7]), roughness: 0.5, metalness: 0.55 }),
@@ -313,8 +313,8 @@ function build() {
     // --- white space -------------------------------------------------------------------------
     rack: [rackFront, rackFront, rackSide, rackSide, rackSide, rackSide] as THREE.Material[],
     rackFront,
-    crah: std("#c7cdd1", 0.5, 0.25),
-    tray: std("#5f686e", 0.5, 0.7),
+    crah: std("#cfc7b8", 0.5, 0.25),
+    tray: std("#665f55", 0.5, 0.7),
     containment: new THREE.MeshStandardMaterial({
       color: "#d9632a",
       emissive: "#d9632a",
@@ -326,10 +326,10 @@ function build() {
       side: THREE.DoubleSide,
     }),
     // --- indicators --------------------------------------------------------------------------------
-    screen: glow("#3cc7e6", 1.3),
+    screen: glow("#f0dfbd", 1.1),
     lamp: glow("#ffd9a0", 2.4),
-    gaugeBack: std("#0b0e10", 0.7),
-    gaugeFill: glow("#3cc7e6", 1.8),
+    gaugeBack: std("#0d0c0a", 0.7),
+    gaugeFill: glow("#f0dfbd", 1.6),
     puff: puffTexture(),
     // --- pipe circuits (flow-animated) -------------------------------------------------------------------
     circuits: {
@@ -354,9 +354,9 @@ export function materials() {
 }
 
 export const STATE_COLOURS: Record<string, string> = {
-  running: "#3cc7e6",
-  standby: "#68727a",
-  off: "#3a4249",
-  warning: "#f2ab2e",
-  fault: "#dd4b4b",
+  running: "#ecdcbc",
+  standby: "#7d7466",
+  off: "#3a352e",
+  warning: "#e2a440",
+  fault: "#e5604f",
 };

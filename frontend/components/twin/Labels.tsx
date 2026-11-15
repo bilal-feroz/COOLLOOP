@@ -64,7 +64,7 @@ export function LabelLayer() {
             className="absolute left-0 top-0 flex flex-col items-center whitespace-nowrap transition-opacity duration-150"
             style={{ opacity: 0, zIndex: focus ? 3 : abnormal ? 2 : 1 }}
           >
-            <div className={`flex items-center gap-1.5 border bg-[#0a0d10eb] px-1.5 py-[3px] ${focus ? "border-accent" : "border-line-2"}`}>
+            <div className={`flex items-center gap-1.5 border bg-panel/90 px-1.5 py-[3px] ${focus ? "border-accent" : "border-line-2"}`}>
               <span className="h-[6px] w-[6px] rounded-full" style={{ background: STATE_COLOURS[item?.state ?? "off"] }} />
               <span className="num text-[10.5px] leading-none text-ink">{item?.tag ?? node.id}</span>
               {focus && item && <span className="text-[10.5px] leading-none text-ink-2">{item.summary}</span>}
